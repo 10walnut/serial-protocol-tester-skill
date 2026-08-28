@@ -7,13 +7,15 @@ from typing import Any
 
 import serial
 from serial.tools import list_ports
-from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QFont, QIcon
+from PySide6.QtCore import QTimer, Qt, QUrl
+from PySide6.QtGui import QDesktopServices, QFont, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
+    QDialog,
     QFileDialog,
     QFormLayout,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
@@ -21,6 +23,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMainWindow,
     QMessageBox,
+    QPlainTextEdit,
     QPushButton,
     QSpinBox,
     QSplitter,
@@ -39,6 +42,13 @@ from protocol_core import (
     format_hex,
     load_protocol,
 )
+from virtual_ports import (
+    COM0COM_DOWNLOAD_URL,
+    VirtualPortError,
+    find_setupc,
+    launch_elevated_install,
+    list_virtual_pairs,
+)
 
 
 def resource_root() -> Path:
@@ -52,6 +62,339 @@ ROOT = resource_root()
 SAMPLE_PROTOCOL = ROOT / "sample_protocol.json"
 
 
+UI_TEXT = {
+    "zh": {
+        "title": "串口协议测试器",
+        "language_button": "EN",
+        "no_protocol": "未加载协议",
+        "load_protocol": "加载协议",
+        "connection": "连接设置",
+        "role": "角色",
+        "host": "上位机",
+        "device": "下位机",
+        "transport": "通信通道",
+        "internal_transport": "内部虚拟链路",
+        "serial_transport": "串口或 URL",
+        "endpoint": "端口",
+        "refresh": "刷新",
+        "virtual_ports": "虚拟串口",
+        "baudrate": "波特率",
+        "data_bits": "数据位",
+        "parity": "校验位",
+        "parity_none": "无",
+        "parity_even": "偶校验",
+        "parity_odd": "奇校验",
+        "parity_mark": "标记",
+        "parity_space": "空格",
+        "stop_bits": "停止位",
+        "open": "打开",
+        "close": "关闭",
+        "opened": "已打开",
+        "closed": "已关闭",
+        "commands": "命令",
+        "command_headers": ["名称", "命令原文", "注释", "波特率", "返回原文", "ID"],
+        "select_command": "请选择命令",
+        "send_request": "发送请求",
+        "simulate_request": "模拟收到请求",
+        "send_response": "手动发送应答",
+        "traffic": "通讯记录与返回解析",
+        "log_headers": ["时间", "方向", "命令", "原始 HEX", "文本"],
+        "decoded_fields": "返回数据转换",
+        "clear": "清空",
+        "decoded_headers": ["字段", "原始数据", "转换值", "键"],
+        "ready": "就绪",
+        "load_dialog_title": "加载协议",
+        "file_filter": "串口协议 (*.json);;所有文件 (*)",
+        "protocol_error": "协议错误",
+        "loaded_commands": "已加载 {count} 条命令",
+        "no_protocol_title": "未加载协议",
+        "no_protocol_message": "请先加载协议 JSON。",
+        "endpoint_required": "请选择 COM 端口，或输入 loop:// 等串口 URL",
+        "internal_name": "内部虚拟链路",
+        "connected": "已连接：{endpoint}",
+        "connection_failed": "连接失败",
+        "connection_failed_status": "连接失败：{error}",
+        "closed_status": "连接已关闭",
+        "no_command_title": "未选择命令",
+        "no_command_message": "请先选择一条命令。",
+        "not_connected_title": "未连接",
+        "not_connected_message": "请先打开连接。",
+        "no_response_title": "无应答",
+        "no_response_message": "该命令没有配置应答帧。",
+        "unmatched": "未匹配",
+        "traffic_status": "{direction} {count} 字节 · {command}",
+        "output_cleared": "已清空输出",
+        "serial_error": "串口错误",
+        "error_status": "错误：{error}",
+        "vp_title": "创建虚拟串口对",
+        "vp_intro": "本功能调用已安装的 com0com 驱动创建两个互联 COM 端口。创建时 Windows 会请求管理员权限。",
+        "vp_driver": "setupc.exe 路径",
+        "vp_browse": "选择",
+        "vp_port_a": "本软件端口",
+        "vp_port_b": "外部软件端口",
+        "vp_create": "创建端口对",
+        "vp_refresh": "刷新状态",
+        "vp_close": "关闭",
+        "vp_not_found": "未检测到 com0com。请先从官方项目安装驱动，或手动选择 setupc.exe。",
+        "vp_found": "已检测到 com0com：{path}",
+        "vp_download": "打开 com0com 官方下载页面",
+        "vp_existing": "com0com 当前端口",
+        "vp_no_output": "尚未读取端口状态。",
+        "vp_select_title": "选择 com0com setupc.exe",
+        "vp_executable_filter": "程序 (setupc.exe);;所有文件 (*)",
+        "vp_driver_missing_title": "缺少虚拟串口驱动",
+        "vp_driver_missing_message": "未找到 setupc.exe。请先安装 com0com 或选择正确路径。",
+        "vp_invalid_title": "端口设置无效",
+        "vp_same_port": "两个端口号不能相同。",
+        "vp_conflict_title": "端口号已占用",
+        "vp_conflict_message": "以下端口已存在：{ports}\n请选择其他端口号。",
+        "vp_uac_title": "确认创建虚拟串口",
+        "vp_uac_message": "将创建 {port_a} ↔ {port_b}。Windows 随后会显示管理员权限确认窗口。是否继续？",
+        "vp_started_title": "已启动创建",
+        "vp_started_message": "已请求创建 {port_a} ↔ {port_b}。请完成 UAC 和驱动确认，然后点击“刷新状态”。",
+        "vp_error_title": "虚拟串口错误",
+    },
+    "en": {
+        "title": "Serial Protocol Tester",
+        "language_button": "中文",
+        "no_protocol": "No protocol loaded",
+        "load_protocol": "Load protocol",
+        "connection": "Connection",
+        "role": "Role",
+        "host": "Host",
+        "device": "Device",
+        "transport": "Transport",
+        "internal_transport": "Internal virtual link",
+        "serial_transport": "COM port or serial URL",
+        "endpoint": "Endpoint",
+        "refresh": "Refresh",
+        "virtual_ports": "Virtual ports",
+        "baudrate": "Baud rate",
+        "data_bits": "Data bits",
+        "parity": "Parity",
+        "parity_none": "None",
+        "parity_even": "Even",
+        "parity_odd": "Odd",
+        "parity_mark": "Mark",
+        "parity_space": "Space",
+        "stop_bits": "Stop bits",
+        "open": "Open",
+        "close": "Close",
+        "opened": "Open",
+        "closed": "Closed",
+        "commands": "Commands",
+        "command_headers": ["Name", "Request", "Annotation", "Baud", "Response", "ID"],
+        "select_command": "Select a command",
+        "send_request": "Send request",
+        "simulate_request": "Simulate request",
+        "send_response": "Send response",
+        "traffic": "Traffic and decoded response",
+        "log_headers": ["Time", "Direction", "Command", "Raw HEX", "Text"],
+        "decoded_fields": "Decoded fields",
+        "clear": "Clear",
+        "decoded_headers": ["Field", "Raw", "Value", "Key"],
+        "ready": "Ready",
+        "load_dialog_title": "Load protocol",
+        "file_filter": "Serial protocol (*.json);;All files (*)",
+        "protocol_error": "Protocol error",
+        "loaded_commands": "Loaded {count} commands",
+        "no_protocol_title": "No protocol",
+        "no_protocol_message": "Load a protocol JSON first.",
+        "endpoint_required": "Select a COM port or enter a serial URL such as loop://",
+        "internal_name": "internal virtual link",
+        "connected": "Connected: {endpoint}",
+        "connection_failed": "Connection failed",
+        "connection_failed_status": "Connection failed: {error}",
+        "closed_status": "Connection closed",
+        "no_command_title": "No command",
+        "no_command_message": "Select a command first.",
+        "not_connected_title": "Not connected",
+        "not_connected_message": "Open the connection first.",
+        "no_response_title": "No response",
+        "no_response_message": "This command has no configured response frame.",
+        "unmatched": "Unmatched",
+        "traffic_status": "{direction} {count} bytes · {command}",
+        "output_cleared": "Output cleared",
+        "serial_error": "Serial error",
+        "error_status": "Error: {error}",
+        "vp_title": "Create virtual COM pair",
+        "vp_intro": "This feature calls an installed com0com driver to create two linked COM ports. Windows administrator approval is required.",
+        "vp_driver": "setupc.exe path",
+        "vp_browse": "Browse",
+        "vp_port_a": "This application",
+        "vp_port_b": "External application",
+        "vp_create": "Create port pair",
+        "vp_refresh": "Refresh status",
+        "vp_close": "Close",
+        "vp_not_found": "com0com was not detected. Install it from the official project first, or select setupc.exe manually.",
+        "vp_found": "com0com detected: {path}",
+        "vp_download": "Open the official com0com download page",
+        "vp_existing": "Current com0com ports",
+        "vp_no_output": "Port status has not been read yet.",
+        "vp_select_title": "Select com0com setupc.exe",
+        "vp_executable_filter": "Program (setupc.exe);;All files (*)",
+        "vp_driver_missing_title": "Virtual port driver missing",
+        "vp_driver_missing_message": "setupc.exe was not found. Install com0com or select the correct path.",
+        "vp_invalid_title": "Invalid port settings",
+        "vp_same_port": "The two port numbers must be different.",
+        "vp_conflict_title": "COM number already in use",
+        "vp_conflict_message": "These ports already exist: {ports}\nChoose different port numbers.",
+        "vp_uac_title": "Confirm virtual port creation",
+        "vp_uac_message": "Create {port_a} ↔ {port_b}? Windows will request administrator approval.",
+        "vp_started_title": "Creation started",
+        "vp_started_message": "Creation of {port_a} ↔ {port_b} was requested. Complete the UAC and driver prompts, then click Refresh status.",
+        "vp_error_title": "Virtual port error",
+    },
+}
+
+
+def ui_text(language: str, key: str, **values: Any) -> Any:
+    text = UI_TEXT[language][key]
+    return text.format(**values) if isinstance(text, str) and values else text
+
+
+class VirtualPortDialog(QDialog):
+    def __init__(self, language: str, refresh_callback: Any, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.language = language
+        self.refresh_callback = refresh_callback
+        self.setWindowTitle(ui_text(language, "vp_title"))
+        self.resize(700, 500)
+        self.setMinimumSize(620, 430)
+        self._build_ui()
+        self._refresh_driver_state()
+
+    def _t(self, key: str, **values: Any) -> Any:
+        return ui_text(self.language, key, **values)
+
+    def _build_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        intro = QLabel(self._t("vp_intro"))
+        intro.setWordWrap(True)
+        layout.addWidget(intro)
+
+        download_link = QLabel(f'<a href="{COM0COM_DOWNLOAD_URL}">{self._t("vp_download")}</a>')
+        download_link.setOpenExternalLinks(False)
+        download_link.linkActivated.connect(lambda url: QDesktopServices.openUrl(QUrl(url)))
+        layout.addWidget(download_link)
+
+        grid = QGridLayout()
+        self.setupc_edit = QLineEdit()
+        self.setupc_edit.setPlaceholderText(r"C:\Program Files\com0com\setupc.exe")
+        browse_button = QPushButton(self._t("vp_browse"))
+        browse_button.clicked.connect(self._browse_setupc)
+        grid.addWidget(QLabel(self._t("vp_driver")), 0, 0)
+        grid.addWidget(self.setupc_edit, 0, 1, 1, 3)
+        grid.addWidget(browse_button, 0, 4)
+
+        self.port_a_spin = QSpinBox()
+        self.port_a_spin.setRange(1, 256)
+        self.port_a_spin.setValue(10)
+        self.port_a_spin.setPrefix("COM")
+        self.port_b_spin = QSpinBox()
+        self.port_b_spin.setRange(1, 256)
+        self.port_b_spin.setValue(11)
+        self.port_b_spin.setPrefix("COM")
+        grid.addWidget(QLabel(self._t("vp_port_a")), 1, 0)
+        grid.addWidget(self.port_a_spin, 1, 1)
+        grid.addWidget(QLabel("↔"), 1, 2, alignment=Qt.AlignmentFlag.AlignCenter)
+        grid.addWidget(QLabel(self._t("vp_port_b")), 1, 3)
+        grid.addWidget(self.port_b_spin, 1, 4)
+        layout.addLayout(grid)
+
+        self.driver_status = QLabel()
+        self.driver_status.setWordWrap(True)
+        layout.addWidget(self.driver_status)
+        layout.addWidget(QLabel(self._t("vp_existing")))
+        self.pair_output = QPlainTextEdit()
+        self.pair_output.setReadOnly(True)
+        self.pair_output.setPlaceholderText(self._t("vp_no_output"))
+        layout.addWidget(self.pair_output, 1)
+
+        buttons = QHBoxLayout()
+        self.create_button = QPushButton(self._t("vp_create"))
+        self.create_button.setObjectName("primaryButton")
+        self.create_button.clicked.connect(self._create_pair)
+        refresh_button = QPushButton(self._t("vp_refresh"))
+        refresh_button.clicked.connect(self._refresh_driver_state)
+        close_button = QPushButton(self._t("vp_close"))
+        close_button.clicked.connect(self.accept)
+        buttons.addWidget(self.create_button)
+        buttons.addWidget(refresh_button)
+        buttons.addStretch(1)
+        buttons.addWidget(close_button)
+        layout.addLayout(buttons)
+
+    def _selected_setupc(self) -> Path | None:
+        value = self.setupc_edit.text().strip()
+        return find_setupc(value or None)
+
+    def _browse_setupc(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            self._t("vp_select_title"),
+            self.setupc_edit.text().strip(),
+            self._t("vp_executable_filter"),
+        )
+        if path:
+            self.setupc_edit.setText(path)
+            self._refresh_driver_state()
+
+    def _refresh_driver_state(self) -> None:
+        setupc = self._selected_setupc()
+        self.create_button.setEnabled(setupc is not None)
+        if setupc is None:
+            self.driver_status.setText(self._t("vp_not_found"))
+            self.driver_status.setStyleSheet("color: #9a4f00;")
+            return
+        self.setupc_edit.setText(str(setupc))
+        self.driver_status.setText(self._t("vp_found", path=setupc))
+        self.driver_status.setStyleSheet("color: #176b70; font-weight: 600;")
+        try:
+            self.pair_output.setPlainText(list_virtual_pairs(setupc))
+        except VirtualPortError as exc:
+            self.pair_output.setPlainText(str(exc))
+        self.refresh_callback()
+
+    def _create_pair(self) -> None:
+        setupc = self._selected_setupc()
+        if setupc is None:
+            QMessageBox.warning(self, self._t("vp_driver_missing_title"), self._t("vp_driver_missing_message"))
+            return
+        port_a = f"COM{self.port_a_spin.value()}"
+        port_b = f"COM{self.port_b_spin.value()}"
+        if port_a == port_b:
+            QMessageBox.warning(self, self._t("vp_invalid_title"), self._t("vp_same_port"))
+            return
+        existing = {port.device.upper() for port in list_ports.comports()}
+        conflicts = [port for port in (port_a, port_b) if port in existing]
+        if conflicts:
+            QMessageBox.warning(
+                self,
+                self._t("vp_conflict_title"),
+                self._t("vp_conflict_message", ports=", ".join(conflicts)),
+            )
+            return
+        answer = QMessageBox.question(
+            self,
+            self._t("vp_uac_title"),
+            self._t("vp_uac_message", port_a=port_a, port_b=port_b),
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            launch_elevated_install(setupc, port_a, port_b)
+        except VirtualPortError as exc:
+            QMessageBox.critical(self, self._t("vp_error_title"), str(exc))
+            return
+        QMessageBox.information(
+            self,
+            self._t("vp_started_title"),
+            self._t("vp_started_message", port_a=port_a, port_b=port_b),
+        )
+        QTimer.singleShot(3000, self._refresh_driver_state)
+
+
 class SerialConsole(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -62,8 +405,8 @@ class SerialConsole(QMainWindow):
         self.last_command: dict[str, Any] | None = None
         self.rx_buffer = bytearray()
         self.last_rx_at = 0.0
+        self.language = "zh"
 
-        self.setWindowTitle("Serial Protocol Tester / 串口协议测试器")
         self.resize(1380, 840)
         self.setMinimumSize(1050, 680)
         self._build_ui()
@@ -85,84 +428,96 @@ class SerialConsole(QMainWindow):
         root.setSpacing(10)
 
         file_row = QHBoxLayout()
-        self.protocol_label = QLabel("No protocol loaded / 未加载协议")
+        self.protocol_label = QLabel()
         self.protocol_label.setObjectName("protocolTitle")
-        load_button = QPushButton("Load protocol / 加载协议")
-        load_button.clicked.connect(self._choose_protocol)
+        self.load_button = QPushButton()
+        self.load_button.clicked.connect(self._choose_protocol)
+        self.language_button = QPushButton()
+        self.language_button.setFixedWidth(58)
+        self.language_button.clicked.connect(self._toggle_language)
         file_row.addWidget(self.protocol_label, 1)
-        file_row.addWidget(load_button)
+        file_row.addWidget(self.language_button)
+        file_row.addWidget(self.load_button)
         root.addLayout(file_row)
 
-        settings = QGroupBox("Connection / 连接")
-        settings_layout = QHBoxLayout(settings)
+        self.settings_group = QGroupBox()
+        settings_layout = QHBoxLayout(self.settings_group)
 
         left_form = QFormLayout()
+        self.role_label = QLabel()
         self.role_combo = QComboBox()
-        self.role_combo.addItem("Host / 上位机", "host")
-        self.role_combo.addItem("Device / 下位机", "device")
+        self.role_combo.addItem("", "host")
+        self.role_combo.addItem("", "device")
         self.role_combo.currentIndexChanged.connect(self._sync_role_ui)
-        left_form.addRow("Role / 角色", self.role_combo)
+        left_form.addRow(self.role_label, self.role_combo)
 
+        self.transport_label = QLabel()
         self.transport_combo = QComboBox()
-        self.transport_combo.addItem("Internal virtual link / 内部虚拟链路", "internal")
-        self.transport_combo.addItem("COM port or serial URL / 串口或 URL", "serial")
+        self.transport_combo.addItem("", "internal")
+        self.transport_combo.addItem("", "serial")
         self.transport_combo.currentIndexChanged.connect(self._sync_transport_ui)
-        left_form.addRow("Transport / 通道", self.transport_combo)
+        left_form.addRow(self.transport_label, self.transport_combo)
         settings_layout.addLayout(left_form, 2)
 
         middle_form = QFormLayout()
+        self.endpoint_label = QLabel()
         port_row = QHBoxLayout()
         self.port_combo = QComboBox()
         self.port_combo.setEditable(True)
         self.port_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         self.port_combo.setPlaceholderText("COM3 or loop://")
-        refresh_button = QPushButton("Refresh / 刷新")
-        refresh_button.clicked.connect(self._refresh_ports)
+        self.refresh_button = QPushButton()
+        self.refresh_button.clicked.connect(self._refresh_ports)
+        self.virtual_ports_button = QPushButton()
+        self.virtual_ports_button.clicked.connect(self._show_virtual_ports)
         port_row.addWidget(self.port_combo, 1)
-        port_row.addWidget(refresh_button)
-        middle_form.addRow("Endpoint / 端口", port_row)
+        port_row.addWidget(self.refresh_button)
+        port_row.addWidget(self.virtual_ports_button)
+        middle_form.addRow(self.endpoint_label, port_row)
 
+        self.baudrate_label = QLabel()
         self.baudrate_spin = QSpinBox()
         self.baudrate_spin.setRange(50, 4_000_000)
         self.baudrate_spin.setValue(9600)
-        middle_form.addRow("Baud rate / 波特率", self.baudrate_spin)
+        middle_form.addRow(self.baudrate_label, self.baudrate_spin)
         settings_layout.addLayout(middle_form, 3)
 
         serial_form = QFormLayout()
+        self.bytesize_label = QLabel()
         self.bytesize_combo = QComboBox()
         self.bytesize_combo.addItems(["5", "6", "7", "8"])
         self.bytesize_combo.setCurrentText("8")
-        serial_form.addRow("Data bits / 数据位", self.bytesize_combo)
+        serial_form.addRow(self.bytesize_label, self.bytesize_combo)
+        self.parity_label = QLabel()
         self.parity_combo = QComboBox()
-        for text, value in [("None / 无", "N"), ("Even / 偶", "E"), ("Odd / 奇", "O"), ("Mark", "M"), ("Space", "S")]:
-            self.parity_combo.addItem(text, value)
-        serial_form.addRow("Parity / 校验位", self.parity_combo)
+        for value in ("N", "E", "O", "M", "S"):
+            self.parity_combo.addItem("", value)
+        serial_form.addRow(self.parity_label, self.parity_combo)
+        self.stopbits_label = QLabel()
         self.stopbits_combo = QComboBox()
         self.stopbits_combo.addItems(["1", "1.5", "2"])
-        serial_form.addRow("Stop bits / 停止位", self.stopbits_combo)
+        serial_form.addRow(self.stopbits_label, self.stopbits_combo)
         settings_layout.addLayout(serial_form, 2)
 
         action_column = QVBoxLayout()
-        self.connect_button = QPushButton("Open / 打开")
+        self.connect_button = QPushButton()
         self.connect_button.setObjectName("primaryButton")
         self.connect_button.clicked.connect(self._toggle_connection)
-        self.connection_label = QLabel("Closed / 已关闭")
+        self.connection_label = QLabel()
         self.connection_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         action_column.addWidget(self.connect_button)
         action_column.addWidget(self.connection_label)
         action_column.addStretch(1)
         settings_layout.addLayout(action_column, 1)
-        root.addWidget(settings)
+        root.addWidget(self.settings_group)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setChildrenCollapsible(False)
 
-        command_group = QGroupBox("Commands / 命令")
-        command_layout = QVBoxLayout(command_group)
+        self.command_group = QGroupBox()
+        command_layout = QVBoxLayout(self.command_group)
         self.command_table = QTableWidget(0, 6)
-        self.command_table.setHorizontalHeaderLabels(
-            ["Name / 名称", "Request / 命令原文", "Annotation / 注释", "Baud / 波特率", "Response / 返回原文", "ID"]
-        )
+        self.command_table.setHorizontalHeaderLabels(["", "", "", "", "", ""])
         self.command_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.command_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.command_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -182,21 +537,18 @@ class SerialConsole(QMainWindow):
         detail_row = QHBoxLayout()
         self.command_detail = QLineEdit()
         self.command_detail.setReadOnly(True)
-        self.command_detail.setPlaceholderText("Select a command / 请选择命令")
-        self.command_action_button = QPushButton("Send request / 发送请求")
+        self.command_action_button = QPushButton()
         self.command_action_button.setObjectName("primaryButton")
         self.command_action_button.clicked.connect(self._run_selected_command)
         detail_row.addWidget(self.command_detail, 1)
         detail_row.addWidget(self.command_action_button)
         command_layout.addLayout(detail_row)
-        splitter.addWidget(command_group)
+        splitter.addWidget(self.command_group)
 
-        output_group = QGroupBox("Traffic and decoded response / 通讯记录与返回解析")
-        output_layout = QVBoxLayout(output_group)
+        self.output_group = QGroupBox()
+        output_layout = QVBoxLayout(self.output_group)
         self.log_table = QTableWidget(0, 5)
-        self.log_table.setHorizontalHeaderLabels(
-            ["Time / 时间", "Dir / 方向", "Command / 命令", "Raw HEX / 原始数据", "Text / 文本"]
-        )
+        self.log_table.setHorizontalHeaderLabels(["", "", "", "", ""])
         self.log_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.log_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.log_table.setAlternatingRowColors(True)
@@ -210,17 +562,16 @@ class SerialConsole(QMainWindow):
         output_layout.addWidget(self.log_table, 3)
 
         decoded_header = QHBoxLayout()
-        decoded_header.addWidget(QLabel("Decoded fields / 返回数据转换"))
+        self.decoded_fields_label = QLabel()
+        decoded_header.addWidget(self.decoded_fields_label)
         decoded_header.addStretch(1)
-        clear_button = QPushButton("Clear / 清空")
-        clear_button.clicked.connect(self._clear_output)
-        decoded_header.addWidget(clear_button)
+        self.clear_button = QPushButton()
+        self.clear_button.clicked.connect(self._clear_output)
+        decoded_header.addWidget(self.clear_button)
         output_layout.addLayout(decoded_header)
 
         self.decoded_table = QTableWidget(0, 4)
-        self.decoded_table.setHorizontalHeaderLabels(
-            ["Field / 字段", "Raw / 原始", "Value / 转换值", "Key / 键"]
-        )
+        self.decoded_table.setHorizontalHeaderLabels(["", "", "", ""])
         self.decoded_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.decoded_table.verticalHeader().setVisible(False)
         decoded_table_header = self.decoded_table.horizontalHeader()
@@ -229,15 +580,70 @@ class SerialConsole(QMainWindow):
         decoded_table_header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         decoded_table_header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         output_layout.addWidget(self.decoded_table, 2)
-        splitter.addWidget(output_group)
+        splitter.addWidget(self.output_group)
         splitter.setSizes([760, 620])
         root.addWidget(splitter, 1)
 
         self.setCentralWidget(central)
         self.setStatusBar(QStatusBar(self))
-        self.statusBar().showMessage("Ready / 就绪")
+        self._retranslate_ui()
         self._sync_transport_ui()
         self._sync_role_ui()
+
+    def _t(self, key: str, **values: Any) -> Any:
+        return ui_text(self.language, key, **values)
+
+    def _toggle_language(self) -> None:
+        self.language = "en" if self.language == "zh" else "zh"
+        self._retranslate_ui()
+
+    def _retranslate_ui(self) -> None:
+        self.setWindowTitle(self._t("title"))
+        self.language_button.setText(self._t("language_button"))
+        self.load_button.setText(self._t("load_protocol"))
+        self.settings_group.setTitle(self._t("connection"))
+        self.role_label.setText(self._t("role"))
+        self.role_combo.setItemText(0, self._t("host"))
+        self.role_combo.setItemText(1, self._t("device"))
+        self.transport_label.setText(self._t("transport"))
+        self.transport_combo.setItemText(0, self._t("internal_transport"))
+        self.transport_combo.setItemText(1, self._t("serial_transport"))
+        self.endpoint_label.setText(self._t("endpoint"))
+        self.refresh_button.setText(self._t("refresh"))
+        self.virtual_ports_button.setText(self._t("virtual_ports"))
+        self.baudrate_label.setText(self._t("baudrate"))
+        self.bytesize_label.setText(self._t("data_bits"))
+        self.parity_label.setText(self._t("parity"))
+        for index, key in enumerate(("parity_none", "parity_even", "parity_odd", "parity_mark", "parity_space")):
+            self.parity_combo.setItemText(index, self._t(key))
+        self.stopbits_label.setText(self._t("stop_bits"))
+        self.command_group.setTitle(self._t("commands"))
+        self.command_table.setHorizontalHeaderLabels(self._t("command_headers"))
+        self.command_detail.setPlaceholderText(self._t("select_command"))
+        self.output_group.setTitle(self._t("traffic"))
+        self.log_table.setHorizontalHeaderLabels(self._t("log_headers"))
+        self.decoded_fields_label.setText(self._t("decoded_fields"))
+        self.clear_button.setText(self._t("clear"))
+        self.decoded_table.setHorizontalHeaderLabels(self._t("decoded_headers"))
+        if self.connected:
+            self.connect_button.setText(self._t("close"))
+            self.connection_label.setText(self._t("opened"))
+            endpoint = self._t("internal_name") if self.transport_combo.currentData() == "internal" else self.port_combo.currentText()
+            self.statusBar().showMessage(self._t("connected", endpoint=endpoint))
+        else:
+            self.connect_button.setText(self._t("open"))
+            self.connection_label.setText(self._t("closed"))
+            if self.protocol:
+                self.statusBar().showMessage(self._t("loaded_commands", count=len(self.protocol["commands"])))
+            else:
+                self.protocol_label.setText(self._t("no_protocol"))
+                self.statusBar().showMessage(self._t("ready"))
+        self._sync_role_ui()
+
+    def _show_virtual_ports(self) -> None:
+        dialog = VirtualPortDialog(self.language, self._refresh_ports, self)
+        dialog.exec()
+        self._refresh_ports()
 
     def _apply_style(self) -> None:
         mono = QFont("Consolas")
@@ -273,9 +679,9 @@ class SerialConsole(QMainWindow):
         start_dir = str(self.protocol_path.parent if self.protocol_path else ROOT)
         path, _ = QFileDialog.getOpenFileName(
             self,
-            "Load protocol / 加载协议",
+            self._t("load_dialog_title"),
             start_dir,
-            "Serial protocol (*.json);;All files (*)",
+            self._t("file_filter"),
         )
         if path:
             self._load_protocol_file(Path(path))
@@ -284,7 +690,7 @@ class SerialConsole(QMainWindow):
         try:
             protocol = load_protocol(path)
         except ProtocolError as exc:
-            QMessageBox.critical(self, "Protocol error / 协议错误", str(exc))
+            QMessageBox.critical(self, self._t("protocol_error"), str(exc))
             return
         self.protocol = protocol
         self.protocol_path = path
@@ -296,7 +702,7 @@ class SerialConsole(QMainWindow):
         self.parity_combo.setCurrentIndex(max(0, parity_index))
         self.stopbits_combo.setCurrentText(str(defaults.get("stopbits", 1)))
         self._populate_commands()
-        self.statusBar().showMessage(f"Loaded {len(protocol['commands'])} commands / 已加载 {len(protocol['commands'])} 条命令")
+        self.statusBar().showMessage(self._t("loaded_commands", count=len(protocol["commands"])))
 
     def _populate_commands(self) -> None:
         commands = self.protocol["commands"] if self.protocol else []
@@ -339,11 +745,11 @@ class SerialConsole(QMainWindow):
     def _sync_role_ui(self) -> None:
         role = self.role_combo.currentData()
         if role == "host":
-            self.command_action_button.setText("Send request / 发送请求")
+            self.command_action_button.setText(self._t("send_request"))
         elif self.transport_combo.currentData() == "internal":
-            self.command_action_button.setText("Simulate request / 模拟收到请求")
+            self.command_action_button.setText(self._t("simulate_request"))
         else:
-            self.command_action_button.setText("Send response / 手动发送应答")
+            self.command_action_button.setText(self._t("send_response"))
 
     def _sync_transport_ui(self) -> None:
         serial_enabled = self.transport_combo.currentData() == "serial"
@@ -380,14 +786,14 @@ class SerialConsole(QMainWindow):
 
     def _open_connection(self) -> None:
         if not self.protocol:
-            QMessageBox.warning(self, "No protocol / 未加载协议", "Load a protocol JSON first. / 请先加载协议 JSON。")
+            QMessageBox.warning(self, self._t("no_protocol_title"), self._t("no_protocol_message"))
             return
         transport = self.transport_combo.currentData()
         try:
             if transport == "serial":
                 endpoint = self.port_combo.currentText().strip()
                 if not endpoint:
-                    raise ValueError("Select a COM port or enter a serial URL such as loop://")
+                    raise ValueError(self._t("endpoint_required"))
                 self.serial_port = serial.serial_for_url(
                     endpoint,
                     baudrate=self.baudrate_spin.value(),
@@ -398,17 +804,17 @@ class SerialConsole(QMainWindow):
                     write_timeout=1,
                 )
             self.connected = True
-            self.connect_button.setText("Close / 关闭")
-            self.connection_label.setText("Open / 已打开")
+            self.connect_button.setText(self._t("close"))
+            self.connection_label.setText(self._t("opened"))
             self.connection_label.setStyleSheet("color: #176b70; font-weight: 700;")
             self.transport_combo.setEnabled(False)
             self.role_combo.setEnabled(False)
             self._sync_transport_ui()
-            endpoint_name = "internal virtual link" if transport == "internal" else self.port_combo.currentText()
-            self.statusBar().showMessage(f"Connected: {endpoint_name} / 已连接")
+            endpoint_name = self._t("internal_name") if transport == "internal" else self.port_combo.currentText()
+            self.statusBar().showMessage(self._t("connected", endpoint=endpoint_name))
         except (serial.SerialException, ValueError, OSError) as exc:
-            QMessageBox.critical(self, "Connection failed / 连接失败", str(exc))
-            self.statusBar().showMessage(f"Connection failed: {exc}")
+            QMessageBox.critical(self, self._t("connection_failed"), str(exc))
+            self.statusBar().showMessage(self._t("connection_failed_status", error=exc))
 
     def _close_connection(self) -> None:
         if self.serial_port is not None:
@@ -419,13 +825,13 @@ class SerialConsole(QMainWindow):
         self.serial_port = None
         self.connected = False
         self.rx_buffer.clear()
-        self.connect_button.setText("Open / 打开")
-        self.connection_label.setText("Closed / 已关闭")
+        self.connect_button.setText(self._t("open"))
+        self.connection_label.setText(self._t("closed"))
         self.connection_label.setStyleSheet("")
         self.transport_combo.setEnabled(True)
         self.role_combo.setEnabled(True)
         self._sync_transport_ui()
-        self.statusBar().showMessage("Closed / 已关闭")
+        self.statusBar().showMessage(self._t("closed_status"))
 
     def _set_command_baudrate(self, command: dict[str, Any]) -> None:
         baudrate = command.get("baudrate", self._serial_defaults()["baudrate"])
@@ -436,10 +842,10 @@ class SerialConsole(QMainWindow):
     def _run_selected_command(self) -> None:
         command = self._selected_command()
         if not command:
-            QMessageBox.information(self, "No command / 未选择命令", "Select a command first. / 请先选择命令。")
+            QMessageBox.information(self, self._t("no_command_title"), self._t("no_command_message"))
             return
         if not self.connected:
-            QMessageBox.information(self, "Not connected / 未连接", "Open the connection first. / 请先打开连接。")
+            QMessageBox.information(self, self._t("not_connected_title"), self._t("not_connected_message"))
             return
         try:
             self._set_command_baudrate(command)
@@ -457,7 +863,7 @@ class SerialConsole(QMainWindow):
             elif command.get("response"):
                 self._transmit(encode_frame(command["response"]), command, "TX")
             else:
-                QMessageBox.information(self, "No response / 无应答", "This command has no configured response.")
+                QMessageBox.information(self, self._t("no_response_title"), self._t("no_response_message"))
         except (ProtocolError, serial.SerialException, OSError, ValueError) as exc:
             self._report_runtime_error(exc)
 
@@ -528,7 +934,7 @@ class SerialConsole(QMainWindow):
                 text_preview = ""
         except UnicodeDecodeError:
             text_preview = ""
-        command_name = command.get("name", "Unmatched / 未匹配") if command else "Unmatched / 未匹配"
+        command_name = command.get("name", self._t("unmatched")) if command else self._t("unmatched")
         values = [now, direction, command_name, format_hex(data), text_preview]
         for column, value in enumerate(values):
             item = QTableWidgetItem(value)
@@ -537,7 +943,9 @@ class SerialConsole(QMainWindow):
                 item.setForeground(Qt.GlobalColor.darkGreen if direction == "RX" else Qt.GlobalColor.darkBlue)
             self.log_table.setItem(row, column, item)
         self.log_table.scrollToBottom()
-        self.statusBar().showMessage(f"{direction} {len(data)} bytes · {command_name}")
+        self.statusBar().showMessage(
+            self._t("traffic_status", direction=direction, count=len(data), command=command_name)
+        )
 
     def _display_decoded(self, data: bytes, response: dict[str, Any] | None) -> None:
         fields = decode_response(data, response)
@@ -552,11 +960,11 @@ class SerialConsole(QMainWindow):
     def _clear_output(self) -> None:
         self.log_table.setRowCount(0)
         self.decoded_table.setRowCount(0)
-        self.statusBar().showMessage("Output cleared / 已清空")
+        self.statusBar().showMessage(self._t("output_cleared"))
 
     def _report_runtime_error(self, error: Exception) -> None:
-        QMessageBox.critical(self, "Serial error / 串口错误", str(error))
-        self.statusBar().showMessage(f"Error: {error}")
+        QMessageBox.critical(self, self._t("serial_error"), str(error))
+        self.statusBar().showMessage(self._t("error_status", error=error))
 
     def closeEvent(self, event: Any) -> None:
         self._close_connection()

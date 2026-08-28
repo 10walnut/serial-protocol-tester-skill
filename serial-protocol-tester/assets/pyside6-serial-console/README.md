@@ -4,6 +4,8 @@ This application loads `serial_protocol.v1` JSON files and runs fixed command/re
 
 本程序加载 `serial_protocol.v1` JSON 协议文件，可作为上位机发送命令，也可作为下位机接收请求并自动应答。
 
+界面默认使用中文。点击右上角 `EN` 切换为英文，点击 `中文` 切回中文。
+
 ## Transport modes / 通道模式
 
 - **Internal virtual link / 内部虚拟链路**: no hardware or driver is required. Host requests receive configured mock responses; device mode simulates an incoming request and automatic reply inside the application.
@@ -12,9 +14,9 @@ This application loads `serial_protocol.v1` JSON files and runs fixed command/re
 - **内部虚拟链路**：无需硬件和驱动，用于验证协议脚本、命令按钮和返回解析。
 - **串口或 URL**：连接物理串口、已安装虚拟串口对的一端，或 `loop://` 等 pyserial URL。
 
-Windows applications cannot expose a new COM device using PySide6 alone. To test another upper-computer application, install a trusted virtual COM pair driver separately, open one endpoint in that application, and open the paired endpoint here. Driver installation normally requires administrator rights.
+Windows applications cannot expose a new COM device using PySide6 alone. The Virtual ports dialog can call an already installed com0com `setupc.exe` to create a linked pair after UAC approval. To test another upper-computer application, open one endpoint in that application and the paired endpoint here.
 
-仅靠 PySide6 无法在 Windows 中注册新的 COM 设备。需要和另一款上位机软件联调时，请单独安装可信的虚拟串口对驱动：另一款软件打开一端，本程序打开配对的另一端。驱动安装通常需要管理员权限。
+仅靠 PySide6 无法在 Windows 中注册新的 COM 设备。需要和另一款上位机软件联调时：先单独安装 [com0com](https://sourceforge.net/projects/com0com/)，再点击本程序的“虚拟串口”，通过已安装的 `setupc.exe` 创建 `COM10 ↔ COM11` 等端口对。创建时会出现 Windows 管理员权限确认；本程序不会自动下载或静默安装驱动。
 
 ## Start / 启动
 

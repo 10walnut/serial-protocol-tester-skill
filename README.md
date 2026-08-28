@@ -10,8 +10,10 @@
 
 - 上位机模式：发送协议命令并显示返回帧。
 - 下位机模式：识别收到的请求并按脚本自动应答。
+- 默认中文界面，右上角 `EN` 按钮可切换英文，再点 `中文` 可切回。
 - 内部虚拟链路：无需硬件即可验证请求、应答和解析规则。
 - 外部串口联调：支持物理 COM 口、已安装虚拟串口对以及 pyserial URL。
+- 虚拟串口管理：检测已安装的 com0com，通过 UAC 创建两个互联的 COM 端口。
 - 命令表：同时显示命令名称、原始 HEX、注释、波特率、预期返回和命令 ID。
 - 数据转换：支持 HEX、ASCII、UTF-8、有符号/无符号整数、Float32、大小端、比例、偏移、单位和枚举。
 - 校验和：支持 SUM8、XOR8 和 CRC-16/Modbus。
@@ -53,7 +55,14 @@ start_serial_console.bat
 
 ### 虚拟串口说明
 
-“内部虚拟链路”只在本程序内部模拟通信，不会向 Windows 注册 COM 设备。若需要让你编写的另一款上位机程序连接本模拟器，需要先安装可信的虚拟串口对驱动，将上位机连接一端、本程序连接另一端。安装系统驱动通常需要管理员权限，本项目不会自动安装驱动。
+“内部虚拟链路”只在本程序内部模拟通信，不会向 Windows 注册 COM 设备。若需要让另一款上位机软件连接本模拟器：
+
+1. 从 [com0com 官方项目](https://sourceforge.net/projects/com0com/) 安装虚拟串口驱动。
+2. 在本程序点击“虚拟串口”，确认或选择 `setupc.exe`。
+3. 输入两个未占用端口，例如 `COM10` 和 `COM11`，点击“创建端口对”并确认 Windows UAC。
+4. 本程序选择“串口或 URL”并打开 `COM10`，另一款上位机打开 `COM11`。
+
+本项目不会自动下载或静默安装内核驱动。com0com 在部分新版 Windows 环境可能受到驱动签名策略限制，此时需要使用组织批准且正确签名的虚拟串口驱动。
 
 ### 使用 Skill
 
@@ -79,8 +88,10 @@ Key capabilities:
 
 - Host mode sends protocol requests and decodes responses.
 - Device mode matches incoming requests and sends scripted replies.
+- The interface starts in Chinese and switches to English with the top-right language button.
 - Internal virtual transport tests command/response behavior without hardware.
 - External transport supports physical COM ports, installed virtual COM pairs, and pyserial URLs.
+- The virtual-port dialog can invoke an installed com0com `setupc.exe` through Windows UAC to create a linked COM pair.
 - The command table shows original bytes, annotations, baud rate, expected response, and command ID.
 - Decoders support hex, ASCII, UTF-8, signed and unsigned integers, Float32, endianness, scaling, offsets, units, and enums.
 - Checksums include SUM8, XOR8, and CRC-16/Modbus.
@@ -102,7 +113,7 @@ Build a single-file Windows executable with:
 .\build_serial_console.ps1
 ```
 
-The internal transport is process-local. Testing another serial application through named COM ports requires a separately installed virtual COM pair driver or a physical serial pair.
+The internal transport is process-local. To test another application, install com0com separately, open the Virtual ports dialog, create a pair such as `COM10 ↔ COM11`, then open one endpoint in this console and the other in the external application. The project does not silently download or install kernel drivers.
 
 ## Repository layout
 

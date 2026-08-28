@@ -23,7 +23,7 @@ Turn a user's serial communication document, table, sample frames, or written de
 - Field offsets are zero-based byte offsets in the received frame.
 - Use `enum` only for explicit mappings from the protocol. Keep raw numeric output available.
 - Use `scale` and `offset_value` for engineering-unit conversion: `display = raw * scale + offset_value`.
-- A normal user-space application cannot create a Windows COM device without a virtual-port driver. The bundled internal transport is process-local. For testing another application, connect the two applications through an installed virtual COM pair or physical serial pair.
+- A normal user-space application cannot create a Windows COM device without a virtual-port driver. The bundled internal transport is process-local. The console can invoke an already installed com0com `setupc.exe` through UAC to create a pair; it must not silently download or install a kernel driver. For testing another application, connect the two applications through that pair or a physical serial pair.
 
 ## Deliverables
 
