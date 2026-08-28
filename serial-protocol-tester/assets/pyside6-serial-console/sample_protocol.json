@@ -1,0 +1,98 @@
+{
+  "schema": "serial_protocol.v1",
+  "status": "ready",
+  "metadata": {
+    "name": "Sample serial device",
+    "version": "1.0",
+    "language": "zh-CN",
+    "default_baudrate": 115200,
+    "serial": {
+      "bytesize": 8,
+      "parity": "N",
+      "stopbits": 1,
+      "timeout_ms": 1000
+    },
+    "encoding": "hex",
+    "endianness": "big"
+  },
+  "commands": [
+    {
+      "id": "read_status",
+      "name": "读取状态",
+      "role": "host",
+      "comment": "查询设备状态寄存器，返回运行状态和错误码。",
+      "baudrate": 115200,
+      "request": {
+        "mode": "hex",
+        "data": "01 03 00 00 00 02 C4 0B",
+        "original": "01 03 00 00 00 02 C4 0B"
+      },
+      "response": {
+        "mode": "hex",
+        "example": "01 03 04 00 01 00 02 2A 32",
+        "timeout_ms": 1000,
+        "decode": [
+          {
+            "name": "state",
+            "label": "状态",
+            "type": "uint16",
+            "offset": 3,
+            "length": 2,
+            "endian": "big",
+            "scale": 1,
+            "unit": ""
+          },
+          {
+            "name": "error_code",
+            "label": "错误码",
+            "type": "uint16",
+            "offset": 5,
+            "length": 2,
+            "endian": "big",
+            "scale": 1,
+            "unit": ""
+          }
+        ]
+      },
+      "auto_reply": {
+        "enabled": true,
+        "data": "01 03 04 00 01 00 02 2A 32"
+      },
+      "checksum": {
+        "type": "crc16_modbus",
+        "range": "0:-2",
+        "byte_order": "little"
+      }
+    },
+    {
+      "id": "set_output_on",
+      "name": "打开输出",
+      "role": "host",
+      "comment": "写单线圈，打开输出通道 1。",
+      "baudrate": 115200,
+      "request": {
+        "mode": "hex",
+        "data": "01 05 00 01 FF 00 DD FA",
+        "original": "01 05 00 01 FF 00 DD FA"
+      },
+      "response": {
+        "mode": "hex",
+        "example": "01 05 00 01 FF 00 DD FA",
+        "timeout_ms": 1000,
+        "decode": [
+          {
+            "name": "echo",
+            "label": "回显",
+            "type": "hex",
+            "offset": 0,
+            "length": 8
+          }
+        ]
+      },
+      "auto_reply": {
+        "enabled": true,
+        "data": "01 05 00 01 FF 00 DD FA"
+      }
+    }
+  ]
+}
