@@ -46,7 +46,14 @@ except ImportError as exc:  # pragma: no cover - user-facing startup guard
     raise SystemExit("PySide6 is required. Install with: pip install -r requirements.txt") from exc
 
 
-ROOT = Path(__file__).resolve().parent
+def resource_root() -> Path:
+    bundled_root = getattr(sys, "_MEIPASS", None)
+    if bundled_root:
+        return Path(bundled_root)
+    return Path(__file__).resolve().parent
+
+
+ROOT = resource_root()
 SAMPLE_PROTOCOL = ROOT / "sample_protocol.json"
 
 

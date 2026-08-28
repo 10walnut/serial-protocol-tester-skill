@@ -33,6 +33,10 @@ Note: a desktop app cannot create kernel-level Windows COM ports by itself. To c
 ## Repository Layout
 
 ```text
+build_serial_console.bat
+build_serial_console.ps1
+start_serial_console.bat
+start_serial_console.ps1
 serial-protocol-tester/
 |-- SKILL.md
 |-- agents/
@@ -66,6 +70,20 @@ python serial-protocol-tester/scripts/validate_protocol.py path/to/protocol.json
 
 ## Run The PySide6 Console
 
+Windows one-click startup from the repository root:
+
+```powershell
+.\start_serial_console.bat
+```
+
+The startup script creates `.venv` in the console folder, installs `PySide6` and `pyserial`, then launches the app. Use this after dependencies are already installed:
+
+```powershell
+.\start_serial_console.ps1 -SkipInstall
+```
+
+Manual startup:
+
 ```bash
 cd serial-protocol-tester/assets/pyside6-serial-console
 python -m venv .venv
@@ -75,3 +93,29 @@ python serial_console.py
 ```
 
 For a quick self-test, load `sample_protocol.json`, choose `pyserial URL`, keep the port as `loop://`, and open the connection.
+
+## Build Windows EXE
+
+Package the PySide6 console from the repository root:
+
+```powershell
+.\build_serial_console.bat
+```
+
+Default output:
+
+```text
+dist\SerialProtocolTester.exe
+```
+
+Build as a folder instead of a single-file exe:
+
+```powershell
+.\build_serial_console.ps1 -OneDir
+```
+
+Skip dependency installation when the virtual environment is already prepared:
+
+```powershell
+.\build_serial_console.ps1 -SkipInstall
+```
