@@ -1,73 +1,31 @@
-# PySide6 Serial Console / PySide6 串口测试上位机
+# PySide6 Serial Console / PySide6 串口测试台
 
-## 中文
+This application loads `serial_protocol.v1` JSON files and runs fixed command/response tests as either a host or a simulated device.
 
-这个示例程序读取 `serial_protocol.v1` JSON 脚本，并生成可点击的串口命令表。它可以作为上位机发送命令，也可以作为下位机监听请求并自动回复。
+本程序加载 `serial_protocol.v1` JSON 协议文件，可作为上位机发送命令，也可作为下位机接收请求并自动应答。
 
-从仓库根目录启动：
+## Transport modes / 通道模式
 
-```powershell
-.\start_serial_console.bat
-```
+- **Internal virtual link / 内部虚拟链路**: no hardware or driver is required. Host requests receive configured mock responses; device mode simulates an incoming request and automatic reply inside the application.
+- **COM port or serial URL / 串口或 URL**: connects to a physical COM port, one side of an installed virtual COM pair, or a pyserial URL such as `loop://`.
 
-手动运行：
+- **内部虚拟链路**：无需硬件和驱动，用于验证协议脚本、命令按钮和返回解析。
+- **串口或 URL**：连接物理串口、已安装虚拟串口对的一端，或 `loop://` 等 pyserial URL。
 
-```bash
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-python serial_console.py
-```
+Windows applications cannot expose a new COM device using PySide6 alone. To test another upper-computer application, install a trusted virtual COM pair driver separately, open one endpoint in that application, and open the paired endpoint here. Driver installation normally requires administrator rights.
 
-快速自测：
+仅靠 PySide6 无法在 Windows 中注册新的 COM 设备。需要和另一款上位机软件联调时，请单独安装可信的虚拟串口对驱动：另一款软件打开一端，本程序打开配对的另一端。驱动安装通常需要管理员权限。
 
-1. 打开 `sample_protocol.json`。
-2. 连接方式选择 `pyserial URL`。
-3. 端口填写 `loop://`。
-4. 点击 `Open`，再点击 `Send Selected`。
+## Start / 启动
 
-连接另一个独立程序时，需要先准备成对虚拟 COM 口或真实串口线。本程序打开其中一个端口，待测程序打开另一个端口。
+From the repository root, double-click `start_serial_console.bat`, or run:
 
-打包 Windows exe：
+在仓库根目录双击 `start_serial_console.bat`，或执行：
 
 ```powershell
-.\build_serial_console.bat
+.\start_serial_console.ps1
 ```
 
-默认输出为 `dist\SerialProtocolTester.exe`。如需文件夹模式，运行 `.\build_serial_console.ps1 -OneDir`。
+The first run creates a local `.venv` and installs PySide6 and pyserial. Failures are written under `logs/`; the batch window pauses on errors instead of closing immediately.
 
-## English
-
-This sample app loads a `serial_protocol.v1` JSON script and builds a clickable serial command table. It can run as a host/controller that sends commands, or as a device/target simulator that listens and auto-replies.
-
-Start from the repository root:
-
-```powershell
-.\start_serial_console.bat
-```
-
-Manual run:
-
-```bash
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-python serial_console.py
-```
-
-Quick self-test:
-
-1. Open `sample_protocol.json`.
-2. Select `pyserial URL`.
-3. Keep the port as `loop://`.
-4. Click `Open`, then `Send Selected`.
-
-To connect another independent application, prepare a paired virtual COM port or physical serial connection first. This app opens one side of the pair and the application under test opens the other.
-
-Build a Windows exe:
-
-```powershell
-.\build_serial_console.bat
-```
-
-The default output is `dist\SerialProtocolTester.exe`. For onedir mode, run `.\build_serial_console.ps1 -OneDir`.
+首次启动会创建本地 `.venv` 并安装依赖。失败信息写入 `logs/`，批处理窗口会在错误时停住，不会直接闪退。

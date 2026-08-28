@@ -1,121 +1,124 @@
 # Serial Protocol Tester Skill / 串口协议测试 Skill
 
+[中文](#中文介绍) | [English](#english)
+
 ## 中文介绍
 
-这是一个用于解决上下位机串口通讯测试麻烦问题的 Codex skill。它可以读取用户提供的串口通讯协议文档，整理为统一的 `serial_protocol.v1` JSON 脚本格式，并配套一个 PySide6 串口测试上位机示例程序。
+这是一个面向上下位机串口联调的 Codex Skill 和 PySide6 桌面测试工具。Skill 可以读取用户提供的通信协议文档、表格或示例报文，将其整理为可校验的 `serial_protocol.v1` JSON 脚本；桌面程序加载脚本后，以按钮方式发送命令、模拟设备应答并解析返回数据。
 
 主要能力：
 
-- 将协议文档转换成标准化命令脚本。
-- 保留命令原文、命令注释、波特率、串口参数、期望返回值和数据转换规则。
-- 用 PySide6 上位机加载脚本，通过按钮发送/接收命令。
-- 软件可作为上位机发送命令，也可作为下位机监听请求并自动回复。
-- 支持 `loop://` 自测、真实串口，以及系统级成对虚拟 COM 口。
-- 对校验算法、字节序、帧格式等影响通讯结果的不确定内容，会要求确认或在脚本中标记。
+- 上位机模式：发送协议命令并显示返回帧。
+- 下位机模式：识别收到的请求并按脚本自动应答。
+- 内部虚拟链路：无需硬件即可验证请求、应答和解析规则。
+- 外部串口联调：支持物理 COM 口、已安装虚拟串口对以及 pyserial URL。
+- 命令表：同时显示命令名称、原始 HEX、注释、波特率、预期返回和命令 ID。
+- 数据转换：支持 HEX、ASCII、UTF-8、有符号/无符号整数、Float32、大小端、比例、偏移、单位和枚举。
+- 校验和：支持 SUM8、XOR8 和 CRC-16/Modbus。
+- Windows 启动与打包：自动创建虚拟环境；失败时保留窗口并写入 `logs/`。
 
-注意：普通桌面程序不能直接创建 Windows 内核级 COM 口。如果要让另一个独立上位机程序连接本工具，需要安装 com0com、厂商虚拟串口工具或使用真实串口线；本工具打开其中一个端口，待测程序打开另一个端口。
+### 快速开始
 
-## English Introduction
-
-Serial Protocol Tester is a Codex skill for simplifying host/device serial communication testing. It converts a user-provided serial protocol document into a standard `serial_protocol.v1` JSON script and includes a PySide6 serial console that can load the script for button-driven testing.
-
-Core capabilities:
-
-- Convert protocol documents into standardized command scripts.
-- Preserve original command payloads, comments, baud rate, serial parameters, expected replies, and response decoding rules.
-- Load scripts in a PySide6 console and send or receive commands from buttons.
-- Run as a host/controller or as a device/target simulator with automatic replies.
-- Support `loop://` self-tests, physical serial ports, and OS-level paired virtual COM ports.
-- Flag or ask about uncertain protocol details such as checksum algorithms, byte order, frame delimiters, and variable fields.
-
-Note: a desktop app cannot create kernel-level Windows COM ports by itself. To connect another independent application, install a paired virtual serial driver such as com0com or use physical serial hardware. This console opens one side of the pair while the application under test opens the other.
-
-## Repository Layout
+在 Windows 中双击：
 
 ```text
-build_serial_console.bat
-build_serial_console.ps1
 start_serial_console.bat
-start_serial_console.ps1
+```
+
+也可以在 PowerShell 中运行：
+
+```powershell
+.\start_serial_console.ps1
+```
+
+首次运行会在应用目录中创建 `.venv` 并安装 PySide6 Widgets 运行库、pyserial。若环境损坏：
+
+```powershell
+.\start_serial_console.ps1 -ResetVenv
+```
+
+只检查运行环境而不打开窗口：
+
+```powershell
+.\start_serial_console.ps1 -CheckOnly
+```
+
+构建单文件 EXE：
+
+```powershell
+.\build_serial_console.ps1
+```
+
+或双击 `build_serial_console.bat`。构建结果位于 `dist\SerialProtocolTester.exe`。使用 `-OneDir` 可生成目录模式。
+
+### 虚拟串口说明
+
+“内部虚拟链路”只在本程序内部模拟通信，不会向 Windows 注册 COM 设备。若需要让你编写的另一款上位机程序连接本模拟器，需要先安装可信的虚拟串口对驱动，将上位机连接一端、本程序连接另一端。安装系统驱动通常需要管理员权限，本项目不会自动安装驱动。
+
+### 使用 Skill
+
+将 `serial-protocol-tester` 目录作为 Codex Skill 使用，并向它提供协议文档。例如：
+
+```text
+使用 $serial-protocol-tester 读取我上传的串口协议，生成可校验的 JSON 协议脚本。
+```
+
+校验生成的协议文件：
+
+```powershell
+python .\serial-protocol-tester\scripts\validate_protocol.py .\my_protocol.json
+```
+
+协议格式说明见 [`protocol-script-format.md`](serial-protocol-tester/references/protocol-script-format.md)，可运行示例见 [`sample_protocol.json`](serial-protocol-tester/assets/pyside6-serial-console/sample_protocol.json)。
+
+## English
+
+This repository contains a Codex skill and a PySide6 desktop console for upper/lower-computer serial testing. The skill converts an uploaded protocol document, table, or sample frames into a validated `serial_protocol.v1` JSON script. The console loads that script and exposes each command as an interactive test action.
+
+Key capabilities:
+
+- Host mode sends protocol requests and decodes responses.
+- Device mode matches incoming requests and sends scripted replies.
+- Internal virtual transport tests command/response behavior without hardware.
+- External transport supports physical COM ports, installed virtual COM pairs, and pyserial URLs.
+- The command table shows original bytes, annotations, baud rate, expected response, and command ID.
+- Decoders support hex, ASCII, UTF-8, signed and unsigned integers, Float32, endianness, scaling, offsets, units, and enums.
+- Checksums include SUM8, XOR8, and CRC-16/Modbus.
+- Windows launch and packaging scripts create an isolated environment and keep errors visible with log files.
+
+### Quick start
+
+Double-click `start_serial_console.bat`, or run:
+
+```powershell
+.\start_serial_console.ps1
+```
+
+Use `.\start_serial_console.ps1 -CheckOnly` to verify the environment without opening the GUI.
+
+Build a single-file Windows executable with:
+
+```powershell
+.\build_serial_console.ps1
+```
+
+The internal transport is process-local. Testing another serial application through named COM ports requires a separately installed virtual COM pair driver or a physical serial pair.
+
+## Repository layout
+
+```text
 serial-protocol-tester/
-|-- SKILL.md
-|-- agents/
-|   `-- openai.yaml
-|-- references/
-|   `-- protocol-script-format.md
-|-- scripts/
-|   `-- validate_protocol.py
-`-- assets/
-    `-- pyside6-serial-console/
-        |-- README.md
-        |-- requirements.txt
-        |-- sample_protocol.json
-        `-- serial_console.py
+├── SKILL.md
+├── agents/openai.yaml
+├── references/protocol-script-format.md
+├── scripts/
+│   ├── validate_protocol.py
+│   └── test_protocol_core.py
+└── assets/pyside6-serial-console/
+    ├── protocol_core.py
+    ├── serial_console.py
+    ├── sample_protocol.json
+    └── requirements.txt
 ```
 
-## Use The Skill
-
-Copy or clone the `serial-protocol-tester` folder into your Codex skills directory, then invoke:
-
-```text
-$serial-protocol-tester
-请读取这个串口通讯协议文档，输出可用于 PySide6 串口测试上位机的 serial_protocol.v1 JSON 脚本。
-```
-
-Validate a generated script:
-
-```bash
-python serial-protocol-tester/scripts/validate_protocol.py path/to/protocol.json
-```
-
-## Run The PySide6 Console
-
-Windows one-click startup from the repository root:
-
-```powershell
-.\start_serial_console.bat
-```
-
-The startup script creates `.venv` in the console folder, installs `PySide6` and `pyserial`, then launches the app. Use this after dependencies are already installed:
-
-```powershell
-.\start_serial_console.ps1 -SkipInstall
-```
-
-Manual startup:
-
-```bash
-cd serial-protocol-tester/assets/pyside6-serial-console
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-python serial_console.py
-```
-
-For a quick self-test, load `sample_protocol.json`, choose `pyserial URL`, keep the port as `loop://`, and open the connection.
-
-## Build Windows EXE
-
-Package the PySide6 console from the repository root:
-
-```powershell
-.\build_serial_console.bat
-```
-
-Default output:
-
-```text
-dist\SerialProtocolTester.exe
-```
-
-Build as a folder instead of a single-file exe:
-
-```powershell
-.\build_serial_console.ps1 -OneDir
-```
-
-Skip dependency installation when the virtual environment is already prepared:
-
-```powershell
-.\build_serial_console.ps1 -SkipInstall
-```
+Licensed under the MIT License.

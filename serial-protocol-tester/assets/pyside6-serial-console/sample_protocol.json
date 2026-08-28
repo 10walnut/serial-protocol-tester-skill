@@ -1,98 +1,115 @@
 {
-  "schema": "serial_protocol.v1",
-  "status": "ready",
-  "metadata": {
-    "name": "Sample serial device",
-    "version": "1.0",
-    "language": "zh-CN",
-    "default_baudrate": 115200,
-    "serial": {
+  "schema_version": "serial_protocol.v1",
+  "name": "Temperature Controller Demo / 温控器示例",
+  "description": "A small Modbus-like protocol used to exercise host and device modes.",
+  "serial": {
+    "defaults": {
+      "baudrate": 9600,
       "bytesize": 8,
       "parity": "N",
       "stopbits": 1,
-      "timeout_ms": 1000
-    },
-    "encoding": "hex",
-    "endianness": "big"
+      "timeout_ms": 300
+    }
   },
   "commands": [
     {
-      "id": "read_status",
-      "name": "读取状态",
-      "role": "host",
-      "comment": "查询设备状态寄存器，返回运行状态和错误码。",
-      "baudrate": 115200,
+      "id": "read_temperature",
+      "name": "Read temperature / 读取温度",
+      "description": "Read register 0x0000; the returned register value is 0.1 °C per count.",
       "request": {
-        "mode": "hex",
-        "data": "01 03 00 00 00 02 C4 0B",
-        "original": "01 03 00 00 00 02 C4 0B"
+        "encoding": "hex",
+        "data": "01 03 00 00 00 01",
+        "checksum": {
+          "algorithm": "modbus_crc16",
+          "append": true,
+          "byte_order": "little"
+        }
       },
       "response": {
-        "mode": "hex",
-        "example": "01 03 04 00 01 00 02 2A 32",
-        "timeout_ms": 1000,
+        "encoding": "hex",
+        "data": "01 03 02 00 FA",
+        "checksum": {
+          "algorithm": "modbus_crc16",
+          "append": true,
+          "byte_order": "little"
+        },
         "decode": [
           {
-            "name": "state",
-            "label": "状态",
-            "type": "uint16",
+            "name": "temperature",
+            "label": "Temperature / 温度",
             "offset": 3,
             "length": 2,
-            "endian": "big",
-            "scale": 1,
-            "unit": ""
-          },
-          {
-            "name": "error_code",
-            "label": "错误码",
             "type": "uint16",
-            "offset": 5,
-            "length": 2,
-            "endian": "big",
-            "scale": 1,
-            "unit": ""
+            "byte_order": "big",
+            "scale": 0.1,
+            "unit": "°C"
           }
         ]
       },
-      "auto_reply": {
-        "enabled": true,
-        "data": "01 03 04 00 01 00 02 2A 32"
-      },
-      "checksum": {
-        "type": "crc16_modbus",
-        "range": "0:-2",
-        "byte_order": "little"
-      }
+      "auto_reply": true
     },
     {
-      "id": "set_output_on",
-      "name": "打开输出",
-      "role": "host",
-      "comment": "写单线圈，打开输出通道 1。",
-      "baudrate": 115200,
+      "id": "set_run_state",
+      "name": "Set run state / 设置运行状态",
+      "description": "Write register 0x0010. The sample value 1 means running.",
       "request": {
-        "mode": "hex",
-        "data": "01 05 00 01 FF 00 DD FA",
-        "original": "01 05 00 01 FF 00 DD FA"
+        "encoding": "hex",
+        "data": "01 06 00 10 00 01",
+        "checksum": {
+          "algorithm": "modbus_crc16",
+          "append": true,
+          "byte_order": "little"
+        },
+        "match_mask": "FF FF FF FF 00 00 00 00"
       },
       "response": {
-        "mode": "hex",
-        "example": "01 05 00 01 FF 00 DD FA",
-        "timeout_ms": 1000,
+        "encoding": "hex",
+        "data": "01 06 00 10 00 01",
+        "checksum": {
+          "algorithm": "modbus_crc16",
+          "append": true,
+          "byte_order": "little"
+        },
         "decode": [
           {
-            "name": "echo",
-            "label": "回显",
-            "type": "hex",
-            "offset": 0,
-            "length": 8
+            "name": "run_state",
+            "label": "Run state / 运行状态",
+            "offset": 4,
+            "length": 2,
+            "type": "uint16",
+            "byte_order": "big",
+            "enum": {
+              "0": "Stopped / 停止",
+              "1": "Running / 运行"
+            }
           }
         ]
       },
-      "auto_reply": {
-        "enabled": true,
-        "data": "01 05 00 01 FF 00 DD FA"
-      }
+      "auto_reply": true
+    },
+    {
+      "id": "ascii_status",
+      "name": "ASCII status / ASCII 状态",
+      "description": "Demonstrates a line-oriented text command.",
+      "baudrate": 115200,
+      "request": {
+        "encoding": "ascii",
+        "data": "STATUS?\r\n"
+      },
+      "response": {
+        "encoding": "ascii",
+        "data": "OK,READY\r\n",
+        "decode": [
+          {
+            "name": "status_text",
+            "label": "Status / 状态",
+            "offset": 0,
+            "length": 8,
+            "type": "ascii"
+          }
+        ]
+      },
+      "auto_reply": true
     }
   ]
 }

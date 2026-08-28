@@ -1,62 +1,30 @@
 ---
 name: serial-protocol-tester
-description: Convert serial communication protocol documents into validated protocol scripts for a PySide6 host/device serial test console, especially for upper/lower computer debugging.
+description: Convert uploaded serial communication specifications into validated serial_protocol.v1 JSON scripts and use them with the bundled PySide6 host/device simulator. Use for serial protocol extraction, command/response scripting, frame decoding, checksums, and upper/lower computer communication testing.
 ---
 
 # Serial Protocol Tester
 
-Use this skill when the user needs to turn a serial communication protocol into a runnable test script, or when they need help debugging communication between an upper computer (host/controller) and a lower computer (device/target).
+Turn a user's serial communication document, table, sample frames, or written description into an executable protocol script for the bundled tester.
 
-## Outcome
+## Workflow
 
-Produce a `serial_protocol.v1` JSON script that can be loaded by the bundled PySide6 serial console. The script should preserve the original command bytes/text, command comments, serial settings, expected response examples, auto-reply behavior, and response decoding rules.
+1. Read all protocol material supplied by the user. Preserve byte order, frame boundaries, checksums, timing, baud rate, and value scaling exactly when they are stated.
+2. Identify missing facts that would change transmitted bytes or decoded values. Ask about those facts instead of guessing. Examples include checksum coverage, byte order, signedness, response length, and whether examples are hexadecimal or text.
+3. Create one `serial_protocol.v1` JSON file. Read [references/protocol-script-format.md](references/protocol-script-format.md) for the schema, supported checksums, field types, and examples.
+4. Give every command a stable `id`, bilingual or source-faithful name, original request bytes, a useful annotation, and a response definition. Use command-specific serial settings only when they differ from `serial.defaults`.
+5. Run `scripts/validate_protocol.py <protocol.json>`. Fix every error before presenting the script.
+6. Tell the user to load the resulting JSON into the bundled PySide6 console in `assets/pyside6-serial-console/`. Use internal simulation for a no-hardware check, or a COM port/serial URL for real or externally paired communication.
 
-When the user uploads or pastes a protocol document:
+## Interpretation Rules
 
-- Extract serial settings: baud rate, byte size, parity, stop bits, timeout, byte order, and framing.
-- Extract every command with a stable `id`, display `name`, original request data, comment, expected response, and response decoding fields.
-- Capture checksum/CRC information when it is defined, including algorithm, covered byte range, initial value, polynomial, xor-out, reflection, and output byte order.
-- Mark unresolved protocol details with `status: "needs_confirmation"` and a concise `questions` array instead of silently inventing bytes or formulas.
-- Validate the finished JSON with `scripts/validate_protocol.py` before presenting it as ready for the console.
+- Treat whitespace in hexadecimal frames as presentation only.
+- Do not invent checksum bytes. Configure a supported checksum when its algorithm and coverage are known; otherwise keep the complete fixed frame and record the uncertainty in the command notes.
+- Field offsets are zero-based byte offsets in the received frame.
+- Use `enum` only for explicit mappings from the protocol. Keep raw numeric output available.
+- Use `scale` and `offset_value` for engineering-unit conversion: `display = raw * scale + offset_value`.
+- A normal user-space application cannot create a Windows COM device without a virtual-port driver. The bundled internal transport is process-local. For testing another application, connect the two applications through an installed virtual COM pair or physical serial pair.
 
-Ask the user before finalizing when missing information changes on-wire bytes or parsing behavior. Important examples are checksum algorithms, byte order, variable-length framing, escape rules, command IDs, required terminators, default baud rate, and how returned bytes map to values. If the missing information is only a label or a display note, use a conservative placeholder and flag it in the script.
+## Deliverables
 
-## Protocol Script Format
-
-Read `references/protocol-script-format.md` before generating or editing a script. Follow the documented schema rather than creating an ad hoc format.
-
-The core shape is:
-
-```json
-{
-  "schema": "serial_protocol.v1",
-  "metadata": {
-    "name": "Device protocol",
-    "default_baudrate": 115200,
-    "serial": {
-      "bytesize": 8,
-      "parity": "N",
-      "stopbits": 1,
-      "timeout_ms": 1000
-    }
-  },
-  "commands": []
-}
-```
-
-## PySide6 Console
-
-The bundled app in `assets/pyside6-serial-console/` loads the generated JSON and provides:
-
-- Host mode for sending protocol commands to a device or device simulator.
-- Device mode for listening on a serial port and auto-replying to matched requests.
-- `loop://` self-test mode through pyserial.
-- Serial/virtual COM port opening with the configured baud rate.
-- Command table columns for original command data, comments, baud rate, and response conversion.
-- TX/RX log with decoded response fields.
-
-The app cannot create kernel-level COM ports by itself. For testing another independent Windows application through two COM ports, the user needs a paired virtual serial driver such as com0com, a USB serial loopback, or vendor-provided virtual ports. The console can then open one side of the pair while the user's application opens the other.
-
-## Delivery Style
-
-Default user-facing explanations and command comments to Chinese when the user works in Chinese. Include English labels or bilingual summaries when the user asks for public documentation, GitHub publishing, or mixed-language handoff.
+Return the validated JSON protocol script, a short note listing any assumptions, and the relevant launch command. Do not modify or publish an external repository unless the user separately authorizes that action.

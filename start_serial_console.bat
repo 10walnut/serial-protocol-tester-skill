@@ -1,5 +1,14 @@
 @echo off
 setlocal
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0start_serial_console.ps1" %*
-exit /b %ERRORLEVEL%
+set "SCRIPT_DIR=%~dp0"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%start_serial_console.ps1" %*
+set "EXIT_CODE=%ERRORLEVEL%"
+
+if not "%EXIT_CODE%"=="0" (
+    echo.
+    echo Startup failed. Read the error above, or check the logs folder.
+    pause
+)
+
+exit /b %EXIT_CODE%
