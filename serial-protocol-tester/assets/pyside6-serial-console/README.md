@@ -1,8 +1,12 @@
 # PySide6 Serial Console / PySide6 串口测试台
 
-This application loads `serial_protocol.v1` JSON files and runs fixed command/response tests as either a host or a simulated device.
+This application loads `serial_protocol.v1` JSON files and runs fixed or formula-built command/response tests as either a host or a simulated device.
 
 本程序加载 `serial_protocol.v1` JSON 协议文件，可作为上位机发送命令，也可作为下位机接收请求并自动应答。
+
+协议包含 `variables` 时，发送前会显示输入表单，再按受限公式写入日期、时间、传感器或标定数据并计算校验和。下方数据解释表同时显示最近一次发送和接收帧，列出字段功能、字节位置、每字节组合方式、换算公式和结果。带 `framing` 的协议按帧头与长度连续拆包，长历史数据不会重复堆叠字段说明。
+
+When a frame contains `variables`, the console prompts for values and applies restricted formulas before calculating the checksum. The lower detail table explains the latest transmitted and received frames, including field purpose, byte positions, byte composition, conversion formulas, and results. Protocols with `framing` split streams by header and length; repeated history records update one detail structure.
 
 界面默认使用中文。点击右上角 `EN` 切换为英文，点击 `中文` 切回中文。
 

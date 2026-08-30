@@ -13,6 +13,8 @@ from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QDialog,
+    QDialogButtonBox,
+    QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
     QGridLayout,
@@ -36,11 +38,15 @@ from PySide6.QtWidgets import (
 
 from protocol_core import (
     ProtocolError,
-    decode_response,
+    default_variable_values,
+    decode_frame_details,
     encode_frame,
     find_matching_command,
+    find_matching_frame,
     format_hex,
     load_protocol,
+    localized_value,
+    split_framed_bytes,
 )
 from virtual_ports import (
     COM0COM_DOWNLOAD_URL,
@@ -99,9 +105,9 @@ UI_TEXT = {
         "send_response": "手动发送应答",
         "traffic": "通讯记录与返回解析",
         "log_headers": ["时间", "方向", "命令", "原始 HEX", "文本"],
-        "decoded_fields": "返回数据转换",
+        "decoded_fields": "发送/接收数据解释",
         "clear": "清空",
-        "decoded_headers": ["字段", "原始数据", "转换值", "键"],
+        "decoded_headers": ["方向", "字节位置", "字段", "功能/作用", "原始字节", "类型/规则", "计算过程", "结果"],
         "ready": "就绪",
         "load_dialog_title": "加载协议",
         "file_filter": "串口协议 (*.json);;所有文件 (*)",
@@ -153,6 +159,9 @@ UI_TEXT = {
         "vp_started_title": "已启动创建",
         "vp_started_message": "已请求创建 {port_a} ↔ {port_b}。请完成 UAC 和驱动确认，然后点击“刷新状态”。",
         "vp_error_title": "虚拟串口错误",
+        "variable_title": "输入发送参数：{command}",
+        "variable_ok": "生成并发送",
+        "variable_cancel": "取消",
     },
     "en": {
         "title": "Serial Protocol Tester",
@@ -190,9 +199,9 @@ UI_TEXT = {
         "send_response": "Send response",
         "traffic": "Traffic and decoded response",
         "log_headers": ["Time", "Direction", "Command", "Raw HEX", "Text"],
-        "decoded_fields": "Decoded fields",
+        "decoded_fields": "Transmitted/received data details",
         "clear": "Clear",
-        "decoded_headers": ["Field", "Raw", "Value", "Key"],
+        "decoded_headers": ["Direction", "Bytes", "Field", "Purpose", "Raw bytes", "Type/rule", "Calculation", "Result"],
         "ready": "Ready",
         "load_dialog_title": "Load protocol",
         "file_filter": "Serial protocol (*.json);;All files (*)",
@@ -244,6 +253,9 @@ UI_TEXT = {
         "vp_started_title": "Creation started",
         "vp_started_message": "Creation of {port_a} ↔ {port_b} was requested. Complete the UAC and driver prompts, then click Refresh status.",
         "vp_error_title": "Virtual port error",
+        "variable_title": "Enter transmit values: {command}",
+        "variable_ok": "Build and send",
+        "variable_cancel": "Cancel",
     },
 }
 
@@ -251,6 +263,89 @@ UI_TEXT = {
 def ui_text(language: str, key: str, **values: Any) -> Any:
     text = UI_TEXT[language][key]
     return text.format(**values) if isinstance(text, str) and values else text
+
+
+class VariableInputDialog(QDialog):
+    def __init__(
+        self,
+        frame: dict[str, Any],
+        command_name: str,
+        language: str,
+        previous: dict[str, Any] | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.frame = frame
+        self.language = language
+        self.widgets: dict[str, QWidget] = {}
+        defaults = default_variable_values(frame)
+        defaults.update(previous or {})
+        self.setWindowTitle(ui_text(language, "variable_title", command=command_name))
+        self.setMinimumWidth(470)
+
+        root = QVBoxLayout(self)
+        form = QFormLayout()
+        for variable in frame.get("variables", []):
+            name = variable["name"]
+            label = localized_value(variable, "label", language, name)
+            unit = variable.get("unit", "")
+            if unit:
+                label = f"{label} ({unit})"
+            choices = variable.get("choices")
+            if isinstance(choices, dict) and choices:
+                widget: QWidget = QComboBox()
+                for raw_value, text_value in choices.items():
+                    try:
+                        value: Any = int(raw_value, 0)
+                    except (TypeError, ValueError):
+                        try:
+                            value = float(raw_value)
+                        except (TypeError, ValueError):
+                            value = raw_value
+                    widget.addItem(str(text_value), value)
+                index = widget.findData(defaults.get(name))
+                widget.setCurrentIndex(max(0, index))
+            elif variable.get("type", "integer") == "number":
+                widget = QDoubleSpinBox()
+                widget.setDecimals(int(variable.get("decimals", 3)))
+                widget.setRange(float(variable.get("min", -1_000_000_000)), float(variable.get("max", 1_000_000_000)))
+                widget.setValue(float(defaults.get(name, 0)))
+            else:
+                widget = QSpinBox()
+                minimum = max(-2_147_483_648, int(variable.get("min", -2_147_483_648)))
+                maximum = min(2_147_483_647, int(variable.get("max", 2_147_483_647)))
+                widget.setRange(minimum, maximum)
+                widget.setValue(int(defaults.get(name, 0)))
+            purpose = localized_value(variable, "purpose", language, localized_value(variable, "description", language))
+            formulae = [
+                field.get("formula", "")
+                for field in frame.get("encode", [])
+                if isinstance(field, dict) and name in str(field.get("formula", ""))
+            ]
+            tooltip = purpose
+            if formulae:
+                formula_label = "公式" if language == "zh" else "Formula"
+                tooltip = f"{tooltip}\n{formula_label}: {', '.join(formulae)}".strip()
+            widget.setToolTip(tooltip)
+            form.addRow(label, widget)
+            self.widgets[name] = widget
+        root.addLayout(form)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(ui_text(language, "variable_ok"))
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(ui_text(language, "variable_cancel"))
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        root.addWidget(buttons)
+
+    def values(self) -> dict[str, Any]:
+        values: dict[str, Any] = {}
+        for name, widget in self.widgets.items():
+            if isinstance(widget, QComboBox):
+                values[name] = widget.currentData()
+            elif isinstance(widget, (QSpinBox, QDoubleSpinBox)):
+                values[name] = widget.value()
+        return values
 
 
 class VirtualPortDialog(QDialog):
@@ -403,6 +498,9 @@ class SerialConsole(QMainWindow):
         self.serial_port: serial.SerialBase | None = None
         self.connected = False
         self.last_command: dict[str, Any] | None = None
+        self.last_tx_context: tuple[bytes, dict[str, Any] | None] | None = None
+        self.last_rx_context: tuple[bytes, dict[str, Any] | None] | None = None
+        self.variable_values: dict[str, dict[str, Any]] = {}
         self.rx_buffer = bytearray()
         self.last_rx_at = 0.0
         self.language = "zh"
@@ -570,15 +668,19 @@ class SerialConsole(QMainWindow):
         decoded_header.addWidget(self.clear_button)
         output_layout.addLayout(decoded_header)
 
-        self.decoded_table = QTableWidget(0, 4)
-        self.decoded_table.setHorizontalHeaderLabels(["", "", "", ""])
+        self.decoded_table = QTableWidget(0, 8)
+        self.decoded_table.setHorizontalHeaderLabels(["", "", "", "", "", "", "", ""])
         self.decoded_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.decoded_table.verticalHeader().setVisible(False)
         decoded_table_header = self.decoded_table.horizontalHeader()
-        decoded_table_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        decoded_table_header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        decoded_table_header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        decoded_table_header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        decoded_table_header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        decoded_table_header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         decoded_table_header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        decoded_table_header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        decoded_table_header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+        decoded_table_header.setSectionResizeMode(6, QHeaderView.ResizeMode.Stretch)
+        decoded_table_header.setSectionResizeMode(7, QHeaderView.ResizeMode.ResizeToContents)
         output_layout.addWidget(self.decoded_table, 2)
         splitter.addWidget(self.output_group)
         splitter.setSizes([760, 620])
@@ -638,6 +740,13 @@ class SerialConsole(QMainWindow):
             else:
                 self.protocol_label.setText(self._t("no_protocol"))
                 self.statusBar().showMessage(self._t("ready"))
+        if self.protocol:
+            selected_row = max(0, self.command_table.currentRow())
+            self.protocol_label.setText(
+                f"{localized_value(self.protocol, 'name', self.language)}  ·  {self.protocol_path.name if self.protocol_path else ''}"
+            )
+            self._populate_commands(selected_row)
+        self._render_frame_details()
         self._sync_role_ui()
 
     def _show_virtual_ports(self) -> None:
@@ -694,7 +803,7 @@ class SerialConsole(QMainWindow):
             return
         self.protocol = protocol
         self.protocol_path = path
-        self.protocol_label.setText(f"{protocol['name']}  ·  {path.name}")
+        self.protocol_label.setText(f"{localized_value(protocol, 'name', self.language)}  ·  {path.name}")
         defaults = protocol["serial"]["defaults"]
         self.baudrate_spin.setValue(defaults["baudrate"])
         self.bytesize_combo.setCurrentText(str(defaults.get("bytesize", 8)))
@@ -704,7 +813,7 @@ class SerialConsole(QMainWindow):
         self._populate_commands()
         self.statusBar().showMessage(self._t("loaded_commands", count=len(protocol["commands"])))
 
-    def _populate_commands(self) -> None:
+    def _populate_commands(self, selected_row: int = 0) -> None:
         commands = self.protocol["commands"] if self.protocol else []
         default_baud = self._serial_defaults().get("baudrate", 9600)
         self.command_table.setRowCount(len(commands))
@@ -712,9 +821,9 @@ class SerialConsole(QMainWindow):
             request = format_hex(encode_frame(command["request"]))
             response = format_hex(encode_frame(command["response"])) if command.get("response") else "—"
             values = [
-                command["name"],
+                localized_value(command, "name", self.language),
                 request,
-                command.get("description", ""),
+                localized_value(command, "description", self.language),
                 str(command.get("baudrate", default_baud)),
                 response,
                 command["id"],
@@ -724,7 +833,7 @@ class SerialConsole(QMainWindow):
                 item.setToolTip(value)
                 self.command_table.setItem(row, column, item)
         if commands:
-            self.command_table.selectRow(0)
+            self.command_table.selectRow(min(selected_row, len(commands) - 1))
 
     def _selected_command(self) -> dict[str, Any] | None:
         if not self.protocol:
@@ -740,7 +849,8 @@ class SerialConsole(QMainWindow):
             self.command_detail.clear()
             return
         request = format_hex(encode_frame(command["request"]))
-        self.command_detail.setText(f"{command['id']}  |  {request}  |  {command.get('description', '')}")
+        description = localized_value(command, "description", self.language)
+        self.command_detail.setText(f"{command['id']}  |  {request}  |  {description}")
 
     def _sync_role_ui(self) -> None:
         role = self.role_combo.currentData()
@@ -852,28 +962,62 @@ class SerialConsole(QMainWindow):
             role = self.role_combo.currentData()
             internal = self.transport_combo.currentData() == "internal"
             if role == "host":
-                request = encode_frame(command["request"])
+                prepared = self._prepare_request(command)
+                if prepared is None:
+                    return
+                request, request_spec = prepared
                 self.last_command = command
-                self._transmit(request, command, "TX")
+                self._transmit(request, command, "TX", request_spec)
                 if internal and command.get("response"):
                     QTimer.singleShot(80, lambda: self._receive_internal_response(command))
             elif internal:
-                request = encode_frame(command["request"])
+                prepared = self._prepare_request(command)
+                if prepared is None:
+                    return
+                request, _request_spec = prepared
                 self._handle_received_frame(request)
             elif command.get("response"):
-                self._transmit(encode_frame(command["response"]), command, "TX")
+                self._transmit(encode_frame(command["response"]), command, "TX", command["response"])
             else:
                 QMessageBox.information(self, self._t("no_response_title"), self._t("no_response_message"))
         except (ProtocolError, serial.SerialException, OSError, ValueError) as exc:
             self._report_runtime_error(exc)
 
-    def _transmit(self, data: bytes, command: dict[str, Any] | None, direction: str) -> None:
+    def _prepare_request(self, command: dict[str, Any]) -> tuple[bytes, dict[str, Any]] | None:
+        frame = command["request"]
+        variables = frame.get("variables", [])
+        if not variables:
+            return encode_frame(frame), frame
+        command_name = localized_value(command, "name", self.language, command["id"])
+        dialog = VariableInputDialog(
+            frame,
+            command_name,
+            self.language,
+            self.variable_values.get(command["id"]),
+            self,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return None
+        values = dialog.values()
+        self.variable_values[command["id"]] = values
+        runtime_spec = dict(frame)
+        runtime_spec["_runtime_values"] = values
+        return encode_frame(frame, values), runtime_spec
+
+    def _transmit(
+        self,
+        data: bytes,
+        command: dict[str, Any] | None,
+        direction: str,
+        frame_spec: dict[str, Any] | None = None,
+    ) -> None:
         if self.transport_combo.currentData() == "serial":
             if self.serial_port is None:
                 raise serial.SerialException("serial port is not open")
             self.serial_port.write(data)
             self.serial_port.flush()
         self._append_log(direction, data, command)
+        self._set_frame_context(direction, data, frame_spec)
 
     def _receive_internal_response(self, command: dict[str, Any]) -> None:
         if not self.connected or self.transport_combo.currentData() != "internal":
@@ -890,7 +1034,17 @@ class SerialConsole(QMainWindow):
             if waiting:
                 self.rx_buffer.extend(self.serial_port.read(waiting))
                 self.last_rx_at = time.monotonic()
-            elif self.rx_buffer and time.monotonic() - self.last_rx_at >= 0.04:
+                framing = self.protocol.get("framing") if self.protocol else None
+                if isinstance(framing, dict):
+                    frames, remainder = split_framed_bytes(bytes(self.rx_buffer), framing)
+                    self.rx_buffer = bytearray(remainder)
+                    for frame in frames:
+                        self._handle_received_frame(frame)
+            elif (
+                self.rx_buffer
+                and not (self.protocol and isinstance(self.protocol.get("framing"), dict))
+                and time.monotonic() - self.last_rx_at >= 0.04
+            ):
                 frame = bytes(self.rx_buffer)
                 self.rx_buffer.clear()
                 self._handle_received_frame(frame)
@@ -900,17 +1054,34 @@ class SerialConsole(QMainWindow):
 
     def _handle_received_frame(self, data: bytes, known_command: dict[str, Any] | None = None) -> None:
         command = known_command
+        passive_frame: dict[str, Any] | None = None
         if command is None and self.protocol:
-            if self.role_combo.currentData() == "device":
-                try:
+            try:
+                passive_frame = find_matching_frame(data, self.protocol.get("frames", []))
+                if passive_frame is None and self.role_combo.currentData() == "device":
                     command = find_matching_command(data, self.protocol["commands"])
-                except ProtocolError as exc:
-                    self._report_runtime_error(exc)
-            else:
-                command = self.last_command
-        self._append_log("RX", data, command)
+                elif passive_frame is None:
+                    command = self.last_command
+            except ProtocolError as exc:
+                self._report_runtime_error(exc)
+        elif self.protocol:
+            try:
+                passive_frame = find_matching_frame(data, self.protocol.get("frames", []))
+            except ProtocolError as exc:
+                self._report_runtime_error(exc)
+        definition = passive_frame or command
+        self._append_log("RX", data, definition)
+        if passive_frame:
+            frame_spec = passive_frame
+        elif command and self.role_combo.currentData() == "host":
+            frame_spec = command.get("response")
+        elif command:
+            frame_spec = command.get("request")
+        else:
+            frame_spec = None
+        self._set_frame_context("RX", data, frame_spec)
         if command and self.role_combo.currentData() == "host":
-            self._display_decoded(data, command.get("response"))
+            self.last_command = command
         if command and self.role_combo.currentData() == "device" and command.get("auto_reply") and command.get("response"):
             QTimer.singleShot(50, lambda: self._send_automatic_response(command))
 
@@ -919,8 +1090,7 @@ class SerialConsole(QMainWindow):
             return
         try:
             response = encode_frame(command["response"])
-            self._transmit(response, command, "TX")
-            self._display_decoded(response, command.get("response"))
+            self._transmit(response, command, "TX", command.get("response"))
         except (ProtocolError, serial.SerialException, OSError) as exc:
             self._report_runtime_error(exc)
 
@@ -934,7 +1104,7 @@ class SerialConsole(QMainWindow):
                 text_preview = ""
         except UnicodeDecodeError:
             text_preview = ""
-        command_name = command.get("name", self._t("unmatched")) if command else self._t("unmatched")
+        command_name = localized_value(command, "name", self.language, self._t("unmatched")) if command else self._t("unmatched")
         values = [now, direction, command_name, format_hex(data), text_preview]
         for column, value in enumerate(values):
             item = QTableWidgetItem(value)
@@ -947,18 +1117,48 @@ class SerialConsole(QMainWindow):
             self._t("traffic_status", direction=direction, count=len(data), command=command_name)
         )
 
-    def _display_decoded(self, data: bytes, response: dict[str, Any] | None) -> None:
-        fields = decode_response(data, response)
-        self.decoded_table.setRowCount(len(fields))
-        for row, field in enumerate(fields):
-            values = [field["label"], field["raw"], field["display"], field["name"]]
+    def _set_frame_context(self, direction: str, data: bytes, frame_spec: dict[str, Any] | None) -> None:
+        context = (data, frame_spec)
+        if direction == "TX":
+            self.last_tx_context = context
+        else:
+            self.last_rx_context = context
+        self._render_frame_details()
+
+    def _render_frame_details(self) -> None:
+        if not hasattr(self, "decoded_table"):
+            return
+        framing = self.protocol.get("framing") if self.protocol else None
+        details: list[dict[str, str]] = []
+        for direction, context in (("TX", self.last_tx_context), ("RX", self.last_rx_context)):
+            if context is None:
+                continue
+            data, frame_spec = context
+            for field in decode_frame_details(data, frame_spec, framing, self.language):
+                details.append({"direction": direction, **field})
+        self.decoded_table.setRowCount(len(details))
+        for row, field in enumerate(details):
+            values = [
+                field["direction"],
+                field["byte_range"],
+                field["field"],
+                field["purpose"],
+                field["raw"],
+                field["rule"],
+                field["calculation"],
+                field["result"],
+            ]
             for column, value in enumerate(values):
                 item = QTableWidgetItem(str(value))
                 item.setToolTip(str(value))
+                if column == 0:
+                    item.setForeground(Qt.GlobalColor.darkGreen if value == "RX" else Qt.GlobalColor.darkBlue)
                 self.decoded_table.setItem(row, column, item)
 
     def _clear_output(self) -> None:
         self.log_table.setRowCount(0)
+        self.last_tx_context = None
+        self.last_rx_context = None
         self.decoded_table.setRowCount(0)
         self.statusBar().showMessage(self._t("output_cleared"))
 

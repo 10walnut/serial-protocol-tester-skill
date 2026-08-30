@@ -1,7 +1,7 @@
 {
   "schema_version": "serial_protocol.v1",
-  "name": "Temperature Controller Demo / 温控器示例",
-  "description": "A small Modbus-like protocol used to exercise host and device modes.",
+  "name": "温度控制器示例",
+  "description": "用于演示上位机、下位机、变量组帧和逐字段计算的 Modbus 风格协议。",
   "serial": {
     "defaults": {
       "baudrate": 9600,
@@ -14,99 +14,83 @@
   "commands": [
     {
       "id": "read_temperature",
-      "name": "Read temperature / 读取温度",
-      "description": "Read register 0x0000; the returned register value is 0.1 °C per count.",
+      "name": "读取温度",
+      "description": "读取地址 0x0000 的一个保持寄存器，返回值每个计数代表 0.1 摄氏度。",
       "request": {
         "encoding": "hex",
         "data": "01 03 00 00 00 01",
-        "checksum": {
-          "algorithm": "modbus_crc16",
-          "append": true,
-          "byte_order": "little"
-        }
+        "checksum": {"algorithm": "modbus_crc16", "append": true, "byte_order": "little"},
+        "decode": [
+          {"name": "slave", "label": "从机地址", "purpose": "指定接收命令的设备", "offset": 0, "length": 1, "type": "uint8"},
+          {"name": "function", "label": "功能码", "purpose": "0x03 表示读取保持寄存器", "offset": 1, "length": 1, "type": "hex"},
+          {"name": "register", "label": "起始寄存器", "purpose": "指定从 0x0000 开始读取", "offset": 2, "length": 2, "type": "uint16", "byte_order": "big"},
+          {"name": "count", "label": "寄存器数量", "purpose": "读取一个 16 位寄存器", "offset": 4, "length": 2, "type": "uint16", "byte_order": "big"}
+        ]
       },
       "response": {
         "encoding": "hex",
         "data": "01 03 02 00 FA",
-        "checksum": {
-          "algorithm": "modbus_crc16",
-          "append": true,
-          "byte_order": "little"
-        },
+        "checksum": {"algorithm": "modbus_crc16", "append": true, "byte_order": "little"},
         "decode": [
-          {
-            "name": "temperature",
-            "label": "Temperature / 温度",
-            "offset": 3,
-            "length": 2,
-            "type": "uint16",
-            "byte_order": "big",
-            "scale": 0.1,
-            "unit": "°C"
-          }
+          {"name": "slave", "label": "从机地址", "purpose": "标识返回数据的设备", "offset": 0, "length": 1, "type": "uint8"},
+          {"name": "function", "label": "功能码", "purpose": "确认本帧是读取保持寄存器应答", "offset": 1, "length": 1, "type": "hex"},
+          {"name": "byte_count", "label": "数据字节数", "purpose": "后续寄存器数据占两个字节", "offset": 2, "length": 1, "type": "uint8", "unit": "字节"},
+          {"name": "temperature", "label": "温度", "purpose": "设备测得的当前温度", "offset": 3, "length": 2, "type": "uint16", "byte_order": "big", "scale": 0.1, "unit": "°C"}
         ]
       },
       "auto_reply": true
     },
     {
       "id": "set_run_state",
-      "name": "Set run state / 设置运行状态",
-      "description": "Write register 0x0010. The sample value 1 means running.",
+      "name": "设置运行状态",
+      "description": "发送前输入运行状态，软件按公式把变量写入寄存器值并重新计算 CRC。",
       "request": {
         "encoding": "hex",
-        "data": "01 06 00 10 00 01",
-        "checksum": {
-          "algorithm": "modbus_crc16",
-          "append": true,
-          "byte_order": "little"
-        },
+        "data": "01 06 00 10 00 00",
+        "variables": [
+          {"name": "run_state", "label": "运行状态", "purpose": "选择设备停止或运行", "type": "integer", "default": 1, "choices": {"0": "停止", "1": "运行"}}
+        ],
+        "encode": [
+          {"name": "run_state", "label": "运行状态", "purpose": "写入 0x0010 寄存器的状态值", "offset": 4, "length": 2, "type": "uint16", "byte_order": "big", "formula": "run_state", "enum": {"0": "停止", "1": "运行"}}
+        ],
+        "decode": [
+          {"name": "slave", "label": "从机地址", "purpose": "指定接收命令的设备", "offset": 0, "length": 1, "type": "uint8"},
+          {"name": "function", "label": "功能码", "purpose": "0x06 表示写单个保持寄存器", "offset": 1, "length": 1, "type": "hex"},
+          {"name": "register", "label": "目标寄存器", "purpose": "运行状态寄存器 0x0010", "offset": 2, "length": 2, "type": "uint16", "byte_order": "big"}
+        ],
+        "checksum": {"algorithm": "modbus_crc16", "append": true, "byte_order": "little"},
         "match_mask": "FF FF FF FF 00 00 00 00"
       },
       "response": {
         "encoding": "hex",
         "data": "01 06 00 10 00 01",
-        "checksum": {
-          "algorithm": "modbus_crc16",
-          "append": true,
-          "byte_order": "little"
-        },
+        "checksum": {"algorithm": "modbus_crc16", "append": true, "byte_order": "little"},
         "decode": [
-          {
-            "name": "run_state",
-            "label": "Run state / 运行状态",
-            "offset": 4,
-            "length": 2,
-            "type": "uint16",
-            "byte_order": "big",
-            "enum": {
-              "0": "Stopped / 停止",
-              "1": "Running / 运行"
-            }
-          }
+          {"name": "slave", "label": "从机地址", "purpose": "标识执行写操作的设备", "offset": 0, "length": 1, "type": "uint8"},
+          {"name": "function", "label": "功能码", "purpose": "确认本帧是写单寄存器应答", "offset": 1, "length": 1, "type": "hex"},
+          {"name": "register", "label": "目标寄存器", "purpose": "回显已写入的寄存器地址", "offset": 2, "length": 2, "type": "uint16", "byte_order": "big"},
+          {"name": "run_state", "label": "运行状态", "purpose": "回显设备接受的状态值", "offset": 4, "length": 2, "type": "uint16", "byte_order": "big", "enum": {"0": "停止", "1": "运行"}}
         ]
       },
       "auto_reply": true
     },
     {
       "id": "ascii_status",
-      "name": "ASCII status / ASCII 状态",
-      "description": "Demonstrates a line-oriented text command.",
+      "name": "查询 ASCII 状态",
+      "description": "演示按行收发的文本命令。",
       "baudrate": 115200,
       "request": {
         "encoding": "ascii",
-        "data": "STATUS?\r\n"
+        "data": "STATUS?\r\n",
+        "decode": [
+          {"name": "command_text", "label": "查询文本", "purpose": "请求设备返回当前状态", "offset": 0, "length": 9, "type": "ascii"}
+        ]
       },
       "response": {
         "encoding": "ascii",
         "data": "OK,READY\r\n",
         "decode": [
-          {
-            "name": "status_text",
-            "label": "Status / 状态",
-            "offset": 0,
-            "length": 8,
-            "type": "ascii"
-          }
+          {"name": "status_text", "label": "状态文本", "purpose": "表示设备正常并已准备接收命令", "offset": 0, "length": 10, "type": "ascii"}
         ]
       },
       "auto_reply": true

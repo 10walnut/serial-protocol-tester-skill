@@ -15,6 +15,10 @@
 - 外部串口联调：支持物理 COM 口、已安装虚拟串口对以及 pyserial URL。
 - 虚拟串口管理：检测已安装的 com0com，通过 UAC 创建两个互联的 COM 端口。
 - 命令表：同时显示命令名称、原始 HEX、注释、波特率、预期返回和命令 ID。
+- 单语言协议脚本：JSON 的名称、注释、字段作用和枚举只使用用户指定或原协议的语言，不再中英文混排。
+- 变量组帧：日期、时间、传感器、标定值等不固定数据可在发送前输入，由 JSON 安全公式生成实际字节。
+- 数据解释：右下角同时保留最近 TX/RX，展示每个字段的字节位置、功能、原始字节、大小端组合、换算公式、结果和校验过程。
+- 连续拆帧：支持按帧头和长度处理分包、粘包；重复历史数据保留每帧日志，但字段结构只解释一次并更新最新值。
 - 数据转换：支持 HEX、ASCII、UTF-8、有符号/无符号整数、Float32、大小端、比例、偏移、单位和枚举。
 - 校验和：支持 SUM8、XOR8 和 CRC-16/Modbus。
 - Windows 启动与打包：自动创建虚拟环境；失败时保留窗口并写入 `logs/`。
@@ -93,6 +97,10 @@ Key capabilities:
 - External transport supports physical COM ports, installed virtual COM pairs, and pyserial URLs.
 - The virtual-port dialog can invoke an installed com0com `setupc.exe` through Windows UAC to create a linked COM pair.
 - The command table shows original bytes, annotations, baud rate, expected response, and command ID.
+- Generated protocol JSON uses only the user's requested/source language for names, annotations, purposes, and enums.
+- Variable frame building prompts for date, time, sensor, calibration, or setpoint values and applies restricted JSON formulas before recomputing the checksum.
+- The detail table keeps the latest TX and RX side by side and explains byte positions, purpose, raw bytes, endianness, calculations, converted results, and checksum validation.
+- Length-based framing handles fragmented and concatenated serial reads. Repeated history frames retain raw log entries while reusing one field explanation.
 - Decoders support hex, ASCII, UTF-8, signed and unsigned integers, Float32, endianness, scaling, offsets, units, and enums.
 - Checksums include SUM8, XOR8, and CRC-16/Modbus.
 - Windows launch and packaging scripts create an isolated environment and keep errors visible with log files.
