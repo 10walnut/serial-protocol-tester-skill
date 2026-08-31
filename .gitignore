@@ -7,3 +7,4 @@ logs/
 *.spec
 .idea/
 .vscode/
+serial-protocol-tester-app/

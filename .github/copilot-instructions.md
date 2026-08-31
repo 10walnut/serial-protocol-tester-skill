@@ -1,0 +1,1 @@
+When a task involves serial communication protocol extraction or executable protocol JSON, follow the repository's `SKILL.md` and its linked format reference. Keep generated protocol content in one user-selected language and validate it with `scripts/validate_protocol.py`.

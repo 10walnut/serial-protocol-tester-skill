@@ -6,8 +6,8 @@ from pathlib import Path
 
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
-APP_ROOT = SKILL_ROOT / "assets" / "pyside6-serial-console"
-sys.path.insert(0, str(APP_ROOT))
+SCRIPT_ROOT = SKILL_ROOT / "scripts"
+sys.path.insert(0, str(SCRIPT_ROOT))
 
 from protocol_core import (  # noqa: E402
     ProtocolError,
@@ -25,7 +25,7 @@ from protocol_core import (  # noqa: E402
 
 class ProtocolCoreTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.sample_path = APP_ROOT / "sample_protocol.json"
+        self.sample_path = SKILL_ROOT / "examples" / "sample_protocol.json"
         self.protocol = load_protocol(self.sample_path)
 
     def test_sample_protocol_loads(self) -> None:

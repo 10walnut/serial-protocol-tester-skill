@@ -7,9 +7,8 @@ import sys
 from pathlib import Path
 
 
-SKILL_ROOT = Path(__file__).resolve().parents[1]
-APP_ROOT = SKILL_ROOT / "assets" / "pyside6-serial-console"
-sys.path.insert(0, str(APP_ROOT))
+SCRIPT_ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(SCRIPT_ROOT))
 
 from protocol_core import validate_protocol_data  # noqa: E402
 
