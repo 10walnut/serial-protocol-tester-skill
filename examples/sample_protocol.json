@@ -11,6 +11,30 @@
       "timeout_ms": 300
     }
   },
+  "frames": [
+    {
+      "id": "temperature_stream",
+      "name": "实时温度数据",
+      "description": "启动实时模式后每 100 毫秒上报一次。",
+      "purpose": "连续传输当前温度",
+      "repeat_group": "temperature_stream",
+      "match": {"offset": 0, "data": "54 45 4D 50 2C"},
+      "decode": [
+        {"name": "prefix", "label": "数据标识", "purpose": "TEMP 表示本帧是实时温度数据", "offset": 0, "length": 5, "type": "ascii"},
+        {"name": "temperature", "label": "温度文本", "purpose": "设备当前温度的十进制文本", "offset": 5, "length": 4, "type": "ascii", "unit": "°C"},
+        {"name": "line_end", "label": "行结束符", "purpose": "标记一条实时数据结束", "offset": 9, "length": 2, "type": "hex"}
+      ],
+      "simulation": {
+        "encoding": "ascii",
+        "data": "TEMP,25.0\r\n",
+        "decode": [
+          {"name": "prefix", "label": "数据标识", "purpose": "TEMP 表示本帧是实时温度数据", "offset": 0, "length": 5, "type": "ascii"},
+          {"name": "temperature", "label": "温度文本", "purpose": "设备当前温度的十进制文本", "offset": 5, "length": 4, "type": "ascii", "unit": "°C"},
+          {"name": "line_end", "label": "行结束符", "purpose": "标记一条实时数据结束", "offset": 9, "length": 2, "type": "hex"}
+        ]
+      }
+    }
+  ],
   "commands": [
     {
       "id": "read_temperature",
@@ -93,6 +117,56 @@
           {"name": "status_text", "label": "状态文本", "purpose": "表示设备正常并已准备接收命令", "offset": 0, "length": 10, "type": "ascii"}
         ]
       },
+      "auto_reply": true
+    },
+    {
+      "id": "start_temperature_stream",
+      "name": "启动实时温度",
+      "description": "先回复启动确认，然后每 100 毫秒发送一帧实时温度数据。",
+      "request": {
+        "encoding": "ascii",
+        "data": "STREAM,START\r\n",
+        "decode": [
+          {"name": "command_text", "label": "启动命令", "purpose": "要求设备进入实时温度上报模式", "offset": 0, "length": 14, "type": "ascii"}
+        ]
+      },
+      "response": {
+        "encoding": "ascii",
+        "data": "OK,STREAM\r\n",
+        "decode": [
+          {"name": "ack", "label": "启动确认", "purpose": "确认设备已接受实时模式命令", "offset": 0, "length": 11, "type": "ascii"}
+        ]
+      },
+      "follow_up_replies": [
+        {
+          "frame_ref": "temperature_stream",
+          "delay_ms": 100,
+          "interval_ms": 100,
+          "repeat_count": 0,
+          "stream_id": "temperature_stream"
+        }
+      ],
+      "auto_reply": true
+    },
+    {
+      "id": "stop_temperature_stream",
+      "name": "停止实时温度",
+      "description": "停止实时温度流并回复停止确认。",
+      "request": {
+        "encoding": "ascii",
+        "data": "STREAM,STOP\r\n",
+        "decode": [
+          {"name": "command_text", "label": "停止命令", "purpose": "要求设备停止实时温度上报", "offset": 0, "length": 13, "type": "ascii"}
+        ]
+      },
+      "response": {
+        "encoding": "ascii",
+        "data": "OK,STOP\r\n",
+        "decode": [
+          {"name": "ack", "label": "停止确认", "purpose": "确认设备已停止实时温度上报", "offset": 0, "length": 9, "type": "ascii"}
+        ]
+      },
+      "stop_streams": ["temperature_stream"],
       "auto_reply": true
     }
   ]

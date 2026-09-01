@@ -1,6 +1,6 @@
 ---
 name: serial-protocol-tester
-description: Convert uploaded serial communication specifications into validated, single-language serial_protocol.v1 JSON scripts. Use for serial protocol extraction, variable frame formulas, command/response scripting, stream framing, field decoding, checksums, and upper/lower computer communication testing.
+description: Convert uploaded serial communication specifications into validated, single-language serial_protocol.v1 JSON scripts. Use for serial protocol extraction, variable frame formulas, immediate and periodic multi-response scripting, stream framing, field decoding, checksums, and upper/lower computer communication testing.
 ---
 
 # Serial Protocol Tester
@@ -15,7 +15,7 @@ Turn a user's serial communication document, table, sample frames, or written de
 4. Create one `serial_protocol.v1` JSON file. Read [references/protocol-script-format.md](references/protocol-script-format.md) for the schema, variable formulas, stream framing, checksums, field types, and examples.
 5. Give every command a stable `id`, source-faithful name, original frame template, useful description, and response definition. Add `purpose` to every field so the console can explain what each byte or byte range does.
 6. When a request contains date, time, calibration, sensor, address, setpoint, or other values that are not fixed by the source, define `variables` and declarative `encode` fields instead of inventing one concrete command. Put the documented conversion in `formula`, such as `round(reference_weight_g * 10)`. Use `system.year` through `system.millisecond` as defaults when the protocol calls for the computer's current time.
-7. Define top-level `framing` whenever a byte stream uses headers and lengths. Define unsolicited or repeated data under `frames`; use one reusable definition for repeated history records rather than duplicating the same field explanation for every record.
+7. Define top-level `framing` whenever a byte stream uses headers and lengths. Define unsolicited or repeated data under `frames`; use one reusable definition for repeated history records rather than duplicating the same field explanation for every record. When one request produces an acknowledgement followed by delayed or periodic data, keep the acknowledgement in `response`, add `follow_up_replies`, and identify the stopping command with `stop_streams`.
 8. Run `scripts/validate_protocol.py <protocol.json>`. Fix every error before presenting the script.
 9. Present the validated JSON and assumptions. When interactive testing is needed, recommend the separate [Serial Protocol Tester application](https://github.com/10walnut/serial-protocol-tester-app); the Skill itself must remain usable without that application.
 
@@ -29,6 +29,8 @@ Turn a user's serial communication document, table, sample frames, or written de
 - Use `scale` and `offset_value` for engineering-unit conversion: `display = raw * scale + offset_value`.
 - Formula results are raw encoded values. Keep formulas auditable and limited to variables, numeric constants, arithmetic, and the supported `round`, `int`, `abs`, `min`, and `max` functions.
 - Cover every meaningful transmitted and received byte with `decode` or `encode` metadata. If the source does not define a byte, label it as unknown instead of guessing its purpose.
+- For a transmitted active frame, add a complete `simulation` object. If the source defines a changing value but gives no concrete value, declare variables, safe editable defaults, and the documented formula inside `simulation`; do not silently replace dynamic data with an unexplained fixed sample.
+- Use `repeat_count: 0` only for a stream that continues until a documented stop command. Give every periodic reply a stable `stream_id`, and put that ID in the stop command's `stop_streams` array.
 - A normal user-space application cannot create a Windows COM device without a virtual-port driver. Do not claim that JSON generation creates a COM device. For two-application testing, use an approved virtual-port driver or a physical serial pair.
 
 ## Deliverables

@@ -295,6 +295,43 @@ def find_matching_frame(received: bytes, frames: list[dict[str, Any]]) -> dict[s
     return None
 
 
+def resolve_follow_up_frame(protocol: dict[str, Any], reply: dict[str, Any]) -> dict[str, Any]:
+    """Resolve a scheduled reply into an encodable frame without mutating the protocol."""
+    if not isinstance(reply, dict):
+        raise ProtocolError("follow-up reply must be an object")
+
+    resolved: dict[str, Any] = {}
+    frame_ref = reply.get("frame_ref")
+    if frame_ref is not None:
+        if not isinstance(frame_ref, str) or not frame_ref:
+            raise ProtocolError("follow-up frame_ref must be a non-empty string")
+        source = next(
+            (
+                frame
+                for frame in protocol.get("frames", [])
+                if isinstance(frame, dict) and frame.get("id") == frame_ref
+            ),
+            None,
+        )
+        if source is None:
+            raise ProtocolError(f"follow-up frame_ref was not found: {frame_ref}")
+        resolved.update({key: value for key, value in source.items() if key != "simulation"})
+        simulation = source.get("simulation")
+        if not isinstance(simulation, dict):
+            raise ProtocolError(f"frame '{frame_ref}' needs a simulation object for scheduled transmission")
+        resolved.update(simulation)
+
+    inline_frame = reply.get("frame")
+    if inline_frame is not None:
+        if not isinstance(inline_frame, dict):
+            raise ProtocolError("follow-up frame must be an object")
+        resolved.update(inline_frame)
+
+    if not resolved:
+        raise ProtocolError("follow-up reply requires frame_ref or frame")
+    return resolved
+
+
 def split_framed_bytes(data: bytes, framing: dict[str, Any]) -> tuple[list[bytes], bytes]:
     header = parse_hex(str(framing.get("header", "")))
     if not header:
@@ -814,6 +851,9 @@ def _validate_variables(variables: Any, path: str, errors: list[str]) -> set[str
             errors.append(f"{item_path}.min must be numeric")
         if maximum is not None and not isinstance(maximum, (int, float)):
             errors.append(f"{item_path}.max must be numeric")
+        step = variable.get("step")
+        if step is not None and (not isinstance(step, (int, float)) or step <= 0):
+            errors.append(f"{item_path}.step must be a positive number")
     return names
 
 
@@ -940,6 +980,54 @@ def _validate_passive_frames(frames: Any, errors: list[str]) -> None:
             except ProtocolError as exc:
                 errors.append(f"{path}.match: {exc}")
         _validate_decode(frame.get("decode"), None, f"{path}.decode", errors)
+        simulation = frame.get("simulation")
+        if simulation is not None:
+            _validate_frame(simulation, f"{path}.simulation", errors)
+
+
+def _validate_follow_up_replies(
+    protocol: dict[str, Any],
+    replies: Any,
+    path: str,
+    errors: list[str],
+) -> None:
+    if replies is None:
+        return
+    if not isinstance(replies, list) or not replies:
+        errors.append(f"{path} must be a non-empty array")
+        return
+    for index, reply in enumerate(replies):
+        item_path = f"{path}[{index}]"
+        if not isinstance(reply, dict):
+            errors.append(f"{item_path} must be an object")
+            continue
+        delay_ms = reply.get("delay_ms", 0)
+        interval_ms = reply.get("interval_ms")
+        repeat_count = reply.get("repeat_count", 0 if interval_ms is not None else 1)
+        stream_id = reply.get("stream_id")
+        prompt_variables = reply.get("prompt_variables", False)
+        if not isinstance(delay_ms, int) or isinstance(delay_ms, bool) or delay_ms < 0:
+            errors.append(f"{item_path}.delay_ms must be a non-negative integer")
+        if interval_ms is not None and (
+            not isinstance(interval_ms, int) or isinstance(interval_ms, bool) or interval_ms <= 0
+        ):
+            errors.append(f"{item_path}.interval_ms must be a positive integer")
+        if not isinstance(repeat_count, int) or isinstance(repeat_count, bool) or repeat_count < 0:
+            errors.append(f"{item_path}.repeat_count must be a non-negative integer")
+        if interval_ms is None and repeat_count not in {1}:
+            errors.append(f"{item_path}.repeat_count must be 1 when interval_ms is omitted")
+        if interval_ms is not None and (not isinstance(stream_id, str) or not stream_id.strip()):
+            errors.append(f"{item_path}.stream_id is required for periodic replies")
+        elif stream_id is not None and (not isinstance(stream_id, str) or not stream_id.strip()):
+            errors.append(f"{item_path}.stream_id must be a non-empty string")
+        if not isinstance(prompt_variables, bool):
+            errors.append(f"{item_path}.prompt_variables must be true or false")
+        try:
+            resolved = resolve_follow_up_frame(protocol, reply)
+        except ProtocolError as exc:
+            errors.append(f"{item_path}: {exc}")
+        else:
+            _validate_frame(resolved, f"{item_path}.resolved_frame", errors)
 
 
 def validate_protocol_data(protocol: Any) -> list[str]:
@@ -980,11 +1068,19 @@ def validate_protocol_data(protocol: Any) -> list[str]:
             errors.append(f"{path}.baudrate must be a positive integer")
         _validate_frame(command.get("request"), f"{path}.request", errors)
         response = command.get("response")
-        response_bytes = None
         if response is not None:
-            response_bytes = _validate_frame(response, f"{path}.response", errors)
-        if command.get("auto_reply", False) and response is None:
-            errors.append(f"{path}.auto_reply requires a response")
+            _validate_frame(response, f"{path}.response", errors)
+        follow_up_replies = command.get("follow_up_replies")
+        _validate_follow_up_replies(protocol, follow_up_replies, f"{path}.follow_up_replies", errors)
+        stop_streams = command.get("stop_streams")
+        if stop_streams is not None and (
+            not isinstance(stop_streams, list)
+            or not stop_streams
+            or any(not isinstance(stream_id, str) or not stream_id.strip() for stream_id in stop_streams)
+        ):
+            errors.append(f"{path}.stop_streams must be a non-empty array of stream IDs")
+        if command.get("auto_reply", False) and response is None and not follow_up_replies and not stop_streams:
+            errors.append(f"{path}.auto_reply requires a response, follow_up_replies, or stop_streams")
     return errors
 
 

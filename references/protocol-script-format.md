@@ -187,6 +187,60 @@ Use `frames` for device-originated data that is not a fixed response to one comm
 
 The first matching definition is used. `repeat_group` documents that repeated records share one structure; the application keeps every raw frame in the traffic log but replaces the lower detail view with the latest values instead of repeating explanations.
 
+## Immediate, delayed, and periodic replies
+
+Use `response` for the immediate acknowledgement. Use `follow_up_replies` when the same request must produce additional frames. A referenced top-level frame needs a complete `simulation` object so the device simulator has bytes or formulas to transmit.
+
+```json
+{
+  "frames": [
+    {
+      "id": "realtime_data",
+      "name": "实时数据",
+      "purpose": "连续上报传感器采样值",
+      "repeat_group": "realtime_data",
+      "match": {"offset": 2, "data": "10"},
+      "decode": [],
+      "simulation": {
+        "encoding": "hex",
+        "data": "AA 55 10 02 00 00",
+        "variables": [
+          {"name": "sensor_value", "label": "传感器值", "purpose": "用于模拟当前采样值", "type": "number", "default": 0, "step": 0.1}
+        ],
+        "encode": [
+          {"name": "sensor_value", "label": "传感器原始值", "purpose": "把工程值转换为 0.1 单位计数", "offset": 4, "length": 2, "type": "int16", "byte_order": "little", "formula": "round(sensor_value * 10)", "scale": 0.1}
+        ],
+        "checksum": {"algorithm": "sum8", "append": true, "start": 2}
+      }
+    }
+  ],
+  "commands": [
+    {
+      "id": "start_realtime",
+      "name": "启动实时模式",
+      "request": {"encoding": "hex", "data": "AA 55 01 00", "checksum": {"algorithm": "sum8", "append": true, "start": 2}},
+      "response": {"encoding": "hex", "data": "AA 55 81 01 00", "checksum": {"algorithm": "sum8", "append": true, "start": 2}},
+      "follow_up_replies": [
+        {"frame_ref": "realtime_data", "delay_ms": 100, "interval_ms": 100, "repeat_count": 0, "stream_id": "realtime", "prompt_variables": true}
+      ],
+      "auto_reply": true
+    },
+    {
+      "id": "stop_realtime",
+      "name": "停止实时模式",
+      "request": {"encoding": "hex", "data": "AA 55 02 00", "checksum": {"algorithm": "sum8", "append": true, "start": 2}},
+      "response": {"encoding": "hex", "data": "AA 55 82 01 00", "checksum": {"algorithm": "sum8", "append": true, "start": 2}},
+      "stop_streams": ["realtime"],
+      "auto_reply": true
+    }
+  ]
+}
+```
+
+`delay_ms` is the delay before the first additional frame. `interval_ms` enables periodic transmission. `repeat_count` is the total number of additional frames; `0` means continue until stopped. Every periodic item requires `stream_id`. Set `prompt_variables: true` when the tester should ask the user for the simulation variables before starting that reply stream; otherwise variable defaults are evaluated automatically for every frame. A one-shot delayed reply omits `interval_ms`, uses `repeat_count: 1`, and may use either `frame_ref` or an inline `frame` object. `stop_streams` stops matching active timers before the stop acknowledgement is sent.
+
+The runtime resolves `frame_ref` by merging the referenced frame metadata with its `simulation` object. An inline `frame` in the follow-up item may override simulation fields. Use this only for source-defined variants, not to hide inconsistent frame layouts.
+
 ## Matching variable requests in device mode
 
 `match_mask` has the same length as the fully encoded request. Bits set to 1 must match; zero bits ignore variable and checksum bytes.
