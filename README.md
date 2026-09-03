@@ -87,6 +87,14 @@ flowchart LR
 
 ![Skill 生成的 JSON 在上位机中执行](docs/images/app-main-zh.png)
 
+### 按协议生成可修改变量
+
+协议中的日期、时间、设备地址、工作模式、阈值、标定值和传感器数据不必固化为一条示例命令。Skill 会根据原厂定义生成 `variables`、`encode` 和受限计算公式，并写明取值范围、单位、步进、大小端、比例与偏移；如果协议没有给出关键计算规则，Skill 会先询问而不是猜测。
+
+![根据协议修改自定义变量并生成串口数据](docs/images/custom-variable-send-zh.png)
+
+导入 App 后，双击命令即可看到该协议专属的参数窗口。用户可手动输入或通过加减按钮调整字段，点击“生成并发送”后，软件按 JSON 公式写入对应字节，并自动更新长度和校验和。不同设备可以呈现不同变量，形成更贴合原厂协议的个性化测试上位机，无需修改软件源码。
+
 ### 提示词示例
 
 基础转换：
@@ -178,6 +186,14 @@ Replace `codex` with `claude`, `workbuddy`, or `harness`. Use `-Target custom -D
 4. Require the Agent to ask about byte order, signedness, checksum coverage, and length rules when the source is ambiguous.
 5. Generate one JSON file, run `scripts/validate_protocol.py`, fix every error, and then load it in the desktop app.
 6. Compare the documented frame, actual TX, and actual RX to determine whether a failure belongs to the host, device, script definition, or transport.
+
+### Protocol-Specific Variables
+
+Changing dates, times, addresses, modes, thresholds, calibration values, and sensor samples do not need to be frozen into example frames. The Skill derives editable `variables`, `encode` rules, and restricted formulas from the vendor specification, including ranges, units, steps, endianness, scaling, and offsets. It asks for missing rules instead of guessing.
+
+![Edit protocol-specific variables and generate serial data](docs/images/custom-variable-send-zh.png)
+
+In the App, opening a command presents only the parameters defined for that protocol. Users can type values or use the step controls, then select **Generate and Send**. The App writes each value into its documented bytes and recalculates lengths and checksums, so every device can have a tailored functional console without changing application code.
 
 Example prompt:
 
