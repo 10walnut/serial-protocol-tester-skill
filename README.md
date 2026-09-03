@@ -1,105 +1,111 @@
-# Serial Protocol Tester Skill / 串口协议转换 Skill
+<p align="center">
+  <img src="docs/images/serial-protocol-tester-logo.png" width="112" alt="Serial Protocol Tester Skill logo">
+</p>
 
-[中文](#中文) | [English](#english) | [PySide6 上位机](https://github.com/10walnut/serial-protocol-tester-app)
+<h1 align="center">Serial Protocol Tester Skill / 串口协议转换 Skill</h1>
 
-通用 Agent Skill：读取用户提供的串口协议文档、表格和示例报文，输出可校验、可执行的单语言 `serial_protocol.v1` JSON。仓库不依赖 GUI，可安装到 Codex、Claude Code、WorkBuddy、Harness，也可作为资料上传给豆包或其他 Agent。
+<p align="center">把协议文档转换为可校验、可执行的单语言串口 JSON<br>Convert protocol documents into validated, executable, single-language serial JSON</p>
+
+<p align="center">
+  <a href="https://github.com/10walnut/serial-protocol-tester-skill/stargazers"><img src="https://img.shields.io/github/stars/10walnut/serial-protocol-tester-skill?style=flat-square&logo=github" alt="GitHub stars"></a>
+  <a href="https://github.com/10walnut/serial-protocol-tester-skill/releases"><img src="https://img.shields.io/github/downloads/10walnut/serial-protocol-tester-skill/total?style=flat-square&logo=github" alt="Total downloads"></a>
+  <a href="https://github.com/10walnut/serial-protocol-tester-skill/actions/workflows/test.yml"><img src="https://github.com/10walnut/serial-protocol-tester-skill/actions/workflows/test.yml/badge.svg" alt="Skill validation"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/10walnut/serial-protocol-tester-skill?style=flat-square" alt="MIT license"></a>
+</p>
+
+<p align="center">
+  <a href="https://ko-fi.com/B7J7268GW1"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support on Ko-fi"></a>
+</p>
+
+<p align="center">
+  <a href="#中文">中文</a> · <a href="#english">English</a> ·
+  <a href="https://github.com/10walnut/serial-protocol-tester-skill/releases/latest/download/serial-protocol-tester-skill.zip">下载 Skill ZIP</a> ·
+  <a href="https://github.com/10walnut/serial-protocol-tester-app">PySide6 上位机</a>
+</p>
 
 ## 中文
 
-### 能力范围
+这个 Skill 读取用户上传的串口协议文档、Word/PDF/Markdown、Excel 命令表、抓包和示例帧，输出标准 `serial_protocol.v1` JSON。生成结果可直接导入配套上位机，也可以由其他程序调用校验和组帧核心。
 
-- 提取串口参数、帧头、长度、命令、应答、校验、大小端、比例、单位和枚举。
-- 名称、注释、字段作用和枚举只输出用户要求的一种语言，不在同一 JSON 中混合中英文。
-- 日期、时间、地址、传感器、设定值和标定值使用变量与受限公式，不用无法解释的固定示例替代动态数据。
-- 为发送与接收字段提供字节位置、类型、作用、换算公式和校验覆盖范围。
-- 描述一条请求对应多条回复：立即 ACK、延迟回复、固定次数回复、100 ms 等周期数据流及停止命令。
-- 描述主动上报和历史数据帧；重复记录共用字段定义，避免重复几十次相同说明。
-- 使用纯 Python 标准库校验 JSON，不依赖 PySide6 软件。
+### 它解决什么问题
 
-### 仓库结构
+- 从资料中提取波特率、数据位、帧头、长度、命令、应答、大小端、比例、单位、枚举和校验范围。
+- 注释、字段名称和说明只输出用户指定的一种语言，避免同一 JSON 中英文混排。
+- 日期、时间、地址、传感器和标定值使用可编辑变量与公式，不把动态值写死。
+- 一条请求可先回复 ACK，再延迟或每 100 ms 周期回复，并由停止命令结束数据流。
+- 每个有意义的 TX/RX 字节都有位置、用途、原始值和计算过程。
+- 生成后使用纯 Python 标准库校验，不依赖桌面软件或 PySide6。
 
-```text
-SKILL.md                              Agent 执行说明
-references/protocol-script-format.md  完整 JSON 格式与示例
-scripts/protocol_core.py              组帧、公式、校验与协议校验核心
-scripts/validate_protocol.py          命令行校验器
-examples/sample_protocol.json         可直接运行的示例协议
-install.ps1 / install.sh              多客户端安装脚本
-```
+### 三分钟安装
 
-### 安装
+#### 豆包
+
+1. 下载 [serial-protocol-tester-skill.zip](https://github.com/10walnut/serial-protocol-tester-skill/releases/latest/download/serial-protocol-tester-skill.zip)。
+2. 在豆包进入“技能新建”→“上传技能”。
+3. 直接上传 ZIP；压缩包根目录已经包含 `SKILL.md`。
+
+#### Codex / Claude Code / WorkBuddy / Harness
 
 ```powershell
 git clone https://github.com/10walnut/serial-protocol-tester-skill.git
 cd serial-protocol-tester-skill
 ```
 
-Codex：
+| 客户端 | Windows 安装命令 |
+| --- | --- |
+| Codex | `.\install.ps1 -Target codex` |
+| Claude Code | `.\install.ps1 -Target claude` |
+| WorkBuddy | `.\install.ps1 -Target workbuddy` |
+| Harness / 项目 Skills | `.\install.ps1 -Target harness` |
+| 自定义目录 | `.\install.ps1 -Target custom -Destination "D:\agent-skills\serial-protocol-tester"` |
 
-```powershell
-.\install.ps1 -Target codex
+WorkBuddy 需要先配置 `WORKBUDDY_SKILL_DIRS`，也可以直接传入 `-Destination`。Linux/macOS 使用 `./install.sh codex`、`./install.sh claude` 或 `./install.sh custom <目录>`。
+
+### 标准流程
+
+```mermaid
+flowchart LR
+    A[上传协议文档/命令表/抓包] --> B[Agent 调用 Skill]
+    B --> C{关键参数完整?}
+    C -- 否 --> D[询问校验范围/大小端/长度等]
+    D --> B
+    C -- 是 --> E[生成单语言 serial_protocol.v1 JSON]
+    E --> F[运行 validate_protocol.py]
+    F --> G[导入 PySide6 上位机]
+    G --> H[真实设备或虚拟串口测试]
 ```
 
-Claude Code：
-
-```powershell
-.\install.ps1 -Target claude
-```
-
-WorkBuddy：
-
-```powershell
-$env:WORKBUDDY_SKILL_DIRS = "C:\WorkBuddy\skills"
-.\install.ps1 -Target workbuddy
-```
-
-也可以显式指定目录：
-
-```powershell
-.\install.ps1 -Target workbuddy -Destination "D:\agent-skills\serial-protocol-tester"
-```
-
-Harness 或使用项目 `skills/` 目录的工具：
-
-```powershell
-.\install.ps1 -Target harness
-```
-
-豆包或其他客户端：
-
-```powershell
-.\install.ps1 -Target custom -Destination "D:\your-agent\skills\serial-protocol-tester"
-```
-
-不能扫描本地 Skill 目录的客户端，可以上传 `SKILL.md`、`references/protocol-script-format.md` 和协议原文，并要求严格按 Skill 输出 JSON。Linux/macOS 使用 `./install.sh codex`、`./install.sh claude` 或 `./install.sh custom <目录>`。
-
-### 使用教程
-
-1. 向 Agent 上传协议文档、命令表、抓包或示例帧。
+1. 上传协议原文和至少一条真实报文；资料越完整，字段解释越准确。
 2. 指定输出语言，例如“只输出中文 JSON，不要中英混合”。
-3. 说明需要模拟的角色和时序，例如“启动命令先回复 ACK，再每 100 ms 回复实时数据，停止命令结束数据流”。
-4. 要求 Agent 使用 `serial-protocol-tester` Skill 生成 JSON，并列出无法从文档确定的事实。
-5. 运行校验器，必须修复所有错误后再导入软件。
+3. 说明模拟角色和时序，例如“先 ACK，100 ms 后开始周期数据”。
+4. 要求 Agent 列出不能确定的校验范围、字节序、符号位或长度定义，不允许猜测。
+5. 生成后运行校验器，修复所有错误，再导入软件。
 
-示例提示词：
+![Skill 生成的 JSON 在上位机中执行](docs/images/app-main-zh.png)
+
+### 提示词示例
+
+基础转换：
 
 ```text
-使用 serial-protocol-tester Skill 读取我上传的协议，只输出中文 serial_protocol.v1 JSON。
-开启实时模式后先回复确认帧，100ms 后开始周期发送实时数据，直到停止命令。
-日期时间使用系统默认值；重量、加速度和角速度提供可输入变量与协议换算公式。
-每个有意义的发送和接收字节都要写明作用，生成后运行校验器。
+使用 serial-protocol-tester Skill 读取我上传的协议。
+只输出中文 serial_protocol.v1 JSON，不要中英文混合。
+每个发送和接收字段写明字节位置、作用、类型和计算过程。
+生成后运行校验器，并单独列出文档中无法确定的内容。
 ```
 
-校验：
+动态变量与周期回复：
 
-```powershell
-python .\scripts\validate_protocol.py .\my-protocol.json
-python -m unittest discover -s tests -p "test_*.py" -v
+```text
+把日期、时间、设备地址、重量、加速度和角速度定义为可输入变量，
+严格使用协议中的大小端、比例和偏移公式组帧并重新计算校验和。
+开启实时模式后先回复确认帧，100 ms 后发送第一帧实时数据，
+之后每 100 ms 发送一次，直到停止命令终止该 stream_id。
 ```
 
-### 多回复 JSON 规则
+### 多回复 JSON 示例
 
-`response` 是立即确认帧。`follow_up_replies` 是确认后的附加回复；周期回复必须有 `interval_ms` 和稳定的 `stream_id`。`repeat_count: 0` 表示持续发送，直到另一命令通过 `stop_streams` 停止。
+`response` 是立即应答；`follow_up_replies` 描述后续帧。周期回复必须使用稳定的 `stream_id`，并由另一条命令的 `stop_streams` 停止。
 
 ```json
 {
@@ -118,20 +124,97 @@ python -m unittest discover -s tests -p "test_*.py" -v
 }
 ```
 
-`frame_ref` 指向顶层 `frames`。用于下位机模拟的主动帧必须提供完整 `simulation`，其中可定义 `variables`、`encode`、`formula` 和 `checksum`。`prompt_variables: true` 让软件在启动流之前询问模拟值；省略时软件按默认值自动生成每一帧。
+被引用的 `frames[].simulation` 必须包含可发送模板。动态值通过 `variables` 和 `encode[].formula` 写入，`prompt_variables: true` 让上位机在启动数据流前询问变量。
 
-### 与上位机软件配合
+### 校验和测试
 
-Skill 负责从资料生成协议脚本，不创建 Windows 设备，也不要求安装 PySide6。需要按钮收发、虚拟 COM、下位机自动应答和逐字节解释时，下载独立的 [Serial Protocol Tester App](https://github.com/10walnut/serial-protocol-tester-app)。App 仓库包含完整教程、已签名 com0com 官方下载链接和虚拟端口排错方法。
+```powershell
+python .\scripts\validate_protocol.py .\examples\sample_protocol.json
+python -m unittest discover -s tests -p "test_*.py" -v
+```
+
+校验成功后，将 JSON 导入 [Serial Protocol Tester App](https://github.com/10walnut/serial-protocol-tester-app)。App 可作为上位机连接真实设备，也可作为下位机通过 com0com 虚拟串口与待测上位机通信。
+
+### 仓库结构
+
+```text
+SKILL.md                              Agent 执行说明
+references/protocol-script-format.md  JSON 格式、变量、帧和校验规则
+scripts/protocol_core.py              组帧、解帧、公式与校验核心
+scripts/validate_protocol.py          命令行校验器
+examples/sample_protocol.json         可直接导入的示例协议
+install.ps1 / install.sh              多客户端安装脚本
+```
 
 ## English
 
-This portable Agent Skill converts serial specifications, tables, captures, and sample frames into validated `serial_protocol.v1` JSON. It preserves documented framing and timing, emits one requested language per file, creates editable variables and safe formulas for dynamic values, and describes every meaningful TX/RX byte.
+This portable Agent Skill converts serial specifications, Word/PDF/Markdown documents, spreadsheets, captures, and sample frames into validated `serial_protocol.v1` JSON. It emits one requested language per file and remains usable without the desktop application.
 
-It supports one-request-to-many-response workflows: an immediate `response`, delayed or periodic `follow_up_replies`, reusable active-frame `simulation`, and `stop_streams`. Periodic frames can prompt for sensor values before transmission or evaluate defaults automatically for every frame.
+### Install
 
-Install with `install.ps1 -Target codex`, `claude`, `workbuddy`, `harness`, or `custom`. On Linux/macOS, use `install.sh`. Clients such as Doubao that do not discover Agent Skills can load `SKILL.md` plus `references/protocol-script-format.md` directly.
+For Doubao, download [serial-protocol-tester-skill.zip](https://github.com/10walnut/serial-protocol-tester-skill/releases/latest/download/serial-protocol-tester-skill.zip), open **Create Skill → Upload Skill**, and upload the ZIP directly. `SKILL.md` is at the archive root.
 
-After generation, run `python scripts/validate_protocol.py <file.json>`. For interactive host/device simulation, formula input, virtual COM pairs, scheduled replies, and byte-level traffic explanations, use the separate [Serial Protocol Tester App](https://github.com/10walnut/serial-protocol-tester-app).
+For local Agent clients:
+
+```powershell
+git clone https://github.com/10walnut/serial-protocol-tester-skill.git
+cd serial-protocol-tester-skill
+.\install.ps1 -Target codex
+```
+
+Replace `codex` with `claude`, `workbuddy`, or `harness`. Use `-Target custom -Destination <path>` for another client. Linux/macOS users can run `install.sh` with the same target concept.
+
+### Workflow
+
+1. Upload the source protocol, command table, captures, and representative frames.
+2. Request exactly one output language for names, descriptions, purposes, and enum labels.
+3. State the role and timing, including immediate acknowledgements, delayed replies, periodic streams, and stop commands.
+4. Require the Agent to ask about byte order, signedness, checksum coverage, and length rules when the source is ambiguous.
+5. Generate one JSON file, run `scripts/validate_protocol.py`, fix every error, and then load it in the desktop app.
+
+Example prompt:
+
+```text
+Use the serial-protocol-tester Skill to read the attached specification.
+Emit English-only serial_protocol.v1 JSON. Define editable variables and documented
+formulas for every changing date, time, address, calibration, and sensor value.
+The realtime command must return an ACK first, then transmit a frame every 100 ms
+until the stop command cancels the stream. Validate the JSON before returning it.
+```
+
+### Output Contract
+
+- Preserve documented serial settings, framing, offsets, byte order, scaling, and checksums.
+- Never invent uncertain bytes or checksum coverage; ask or label them as unknown.
+- Describe every meaningful transmitted and received byte.
+- Put unsolicited/repeated frames under top-level `frames` and reuse one definition for repeated history data.
+- Use `response`, `follow_up_replies`, and `stop_streams` for one-request-to-many-response workflows.
+- Use declarative variables and restricted formulas instead of unexplained fixed sensor samples.
+
+Validate with:
+
+```powershell
+python scripts/validate_protocol.py examples/sample_protocol.json
+python -m unittest discover -s tests -p "test_*.py" -v
+```
+
+For button-driven host/device simulation, virtual COM pairs, formula input, scheduled replies, and byte-level traffic explanations, download the separate [Serial Protocol Tester App](https://github.com/10walnut/serial-protocol-tester-app).
+
+## Support / 赞赏
+
+If this project saves protocol-conversion or serial-debugging time, support continued maintenance through Ko-fi, Alipay, or WeChat. Thank you for every star, issue, test report, and contribution.
+
+<p align="center">
+  <a href="https://ko-fi.com/B7J7268GW1"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support on Ko-fi"></a>
+</p>
+
+<table align="center">
+  <tr><th>支付宝 / Alipay</th><th>微信赞赏 / WeChat</th><th>Ko-fi</th></tr>
+  <tr>
+    <td><img src="docs/images/donate-alipay.jpg" width="180" alt="Alipay support QR code"></td>
+    <td><img src="docs/images/donate-wechat.png" width="180" alt="WeChat support QR code"></td>
+    <td><img src="docs/images/donate-kofi.png" width="180" alt="Ko-fi support QR code"></td>
+  </tr>
+</table>
 
 Maintained by `十个核桃 / 10walnut`. MIT licensed.
