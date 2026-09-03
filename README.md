@@ -4,7 +4,7 @@
 
 <h1 align="center">Serial Protocol Tester Skill / 串口协议转换 Skill</h1>
 
-<p align="center">把协议文档转换为可校验、可执行的单语言串口 JSON<br>Convert protocol documents into validated, executable, single-language serial JSON</p>
+<p align="center">从原厂串口协议文档快速生成可执行 JSON 和功能测试上位机<br>Turn vendor serial specifications into executable JSON and a working test console</p>
 
 <p align="center">
   <a href="https://github.com/10walnut/serial-protocol-tester-skill/stargazers"><img src="https://img.shields.io/github/stars/10walnut/serial-protocol-tester-skill?style=flat-square&logo=github" alt="GitHub stars"></a>
@@ -25,7 +25,9 @@
 
 ## 中文
 
-这个 Skill 读取用户上传的串口协议文档、Word/PDF/Markdown、Excel 命令表、抓包和示例帧，输出标准 `serial_protocol.v1` JSON。生成结果可直接导入配套上位机，也可以由其他程序调用校验和组帧核心。
+这个 Skill 读取原厂串口协议文档、Word/PDF/Markdown、Excel 命令表、抓包和示例帧，输出标准 `serial_protocol.v1` JSON。生成结果可直接导入配套软件，把原始资料快速变成可发送命令、接收应答、模拟上下位机并解释每个字节的功能测试上位机。
+
+它把“读协议、写测试界面、实现组帧解帧”压缩为一条可复用流程。测试时可对照协议预期、实际 TX 和实际 RX，快速判断问题位于上位机实现、下位机响应、协议脚本还是串口链路；测试完成后，配套软件也可继续作为简单功能的上位机使用。
 
 ### 它解决什么问题
 
@@ -35,6 +37,7 @@
 - 一条请求可先回复 ACK，再延迟或每 100 ms 周期回复，并由停止命令结束数据流。
 - 每个有意义的 TX/RX 字节都有位置、用途、原始值和计算过程。
 - 生成后使用纯 Python 标准库校验，不依赖桌面软件或 PySide6。
+- 配合 App 直接生成按钮式测试界面，减少为每份原厂协议重复编写临时上位机的工作。
 
 ### 三分钟安装
 
@@ -65,7 +68,7 @@ WorkBuddy 需要先配置 `WORKBUDDY_SKILL_DIRS`，也可以直接传入 `-Desti
 
 ```mermaid
 flowchart LR
-    A[上传协议文档/命令表/抓包] --> B[Agent 调用 Skill]
+    A[上传原厂协议文档/命令表/抓包] --> B[Agent 调用 Skill]
     B --> C{关键参数完整?}
     C -- 否 --> D[询问校验范围/大小端/长度等]
     D --> B
@@ -73,6 +76,7 @@ flowchart LR
     E --> F[运行 validate_protocol.py]
     F --> G[导入 PySide6 上位机]
     G --> H[真实设备或虚拟串口测试]
+    H --> I[对照 TX/RX 快速定位上下位机问题]
 ```
 
 1. 上传协议原文和至少一条真实报文；资料越完整，字段解释越准确。
@@ -133,7 +137,7 @@ python .\scripts\validate_protocol.py .\examples\sample_protocol.json
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-校验成功后，将 JSON 导入 [Serial Protocol Tester App](https://github.com/10walnut/serial-protocol-tester-app)。App 可作为上位机连接真实设备，也可作为下位机通过 com0com 虚拟串口与待测上位机通信。
+校验成功后，将 JSON 导入 [Serial Protocol Tester App](https://github.com/10walnut/serial-protocol-tester-app)。App 可作为上位机连接真实设备，也可作为下位机通过 com0com 虚拟串口与待测上位机通信；完成协议验证后，还可直接作为该设备的轻量功能上位机使用。
 
 ### 仓库结构
 
@@ -148,7 +152,9 @@ install.ps1 / install.sh              多客户端安装脚本
 
 ## English
 
-This portable Agent Skill converts serial specifications, Word/PDF/Markdown documents, spreadsheets, captures, and sample frames into validated `serial_protocol.v1` JSON. It emits one requested language per file and remains usable without the desktop application.
+This portable Agent Skill turns vendor serial specifications, Word/PDF/Markdown documents, spreadsheets, captures, and sample frames into validated `serial_protocol.v1` JSON. Load the result into the companion app to get a button-driven functional test console without rebuilding a temporary host UI and protocol parser for every device.
+
+The resulting workflow exposes expected frames, actual TX, and actual RX side by side, helping isolate faults in the host implementation, device response, protocol script, or serial link. After validation, the same app can remain in use as a lightweight functional host.
 
 ### Install
 
@@ -171,6 +177,7 @@ Replace `codex` with `claude`, `workbuddy`, or `harness`. Use `-Target custom -D
 3. State the role and timing, including immediate acknowledgements, delayed replies, periodic streams, and stop commands.
 4. Require the Agent to ask about byte order, signedness, checksum coverage, and length rules when the source is ambiguous.
 5. Generate one JSON file, run `scripts/validate_protocol.py`, fix every error, and then load it in the desktop app.
+6. Compare the documented frame, actual TX, and actual RX to determine whether a failure belongs to the host, device, script definition, or transport.
 
 Example prompt:
 
@@ -198,23 +205,6 @@ python scripts/validate_protocol.py examples/sample_protocol.json
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-For button-driven host/device simulation, virtual COM pairs, formula input, scheduled replies, and byte-level traffic explanations, download the separate [Serial Protocol Tester App](https://github.com/10walnut/serial-protocol-tester-app).
-
-## Support / 赞赏
-
-If this project saves protocol-conversion or serial-debugging time, support continued maintenance through Ko-fi, Alipay, or WeChat. Thank you for every star, issue, test report, and contribution.
-
-<p align="center">
-  <a href="https://ko-fi.com/B7J7268GW1"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support on Ko-fi"></a>
-</p>
-
-<table align="center">
-  <tr><th>支付宝 / Alipay</th><th>微信赞赏 / WeChat</th><th>Ko-fi</th></tr>
-  <tr>
-    <td><img src="docs/images/donate-alipay.jpg" width="180" alt="Alipay support QR code"></td>
-    <td><img src="docs/images/donate-wechat.png" width="180" alt="WeChat support QR code"></td>
-    <td><img src="docs/images/donate-kofi.png" width="180" alt="Ko-fi support QR code"></td>
-  </tr>
-</table>
+For a fast path from vendor documentation to button-driven host/device simulation, virtual COM testing, formula input, scheduled replies, fault isolation, and byte-level traffic explanations, download the separate [Serial Protocol Tester App](https://github.com/10walnut/serial-protocol-tester-app). It can also be used as a lightweight host for routine device functions.
 
 Maintained by `十个核桃 / 10walnut`. MIT licensed.

@@ -1,4 +1,4 @@
 interface:
   display_name: "Serial Protocol Tester / 串口协议测试器"
-  short_description: "Generate and test serial protocol scripts"
-  default_prompt: "Use $serial-protocol-tester to convert my serial protocol into a validated script and test it in the simulator."
+  short_description: "Turn vendor serial docs into a test console"
+  default_prompt: "Use $serial-protocol-tester to convert my vendor serial protocol into a validated script, load it as a functional test console, and help isolate host, device, script, or link faults."
