@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/images/serial-protocol-tester-logo.png" width="112" alt="Serial Protocol Tester Skill logo">
+  <img src="docs/images/serial-protocol-tester-logo.png" width="112" alt="Serial Protocol Assistant Skill logo">
 </p>
 
-<h1 align="center">Serial Protocol Tester Skill / 串口协议转换 Skill</h1>
+<h1 align="center">串口协议助手 Skill / Serial Protocol Assistant Skill</h1>
 
 <p align="center">从原厂串口协议文档快速生成可执行 JSON 和功能测试上位机<br>Turn vendor serial specifications into executable JSON and a working test console</p>
 
@@ -19,11 +19,13 @@
 
 <p align="center">
   <a href="#中文">中文</a> · <a href="#english">English</a> ·
-  <a href="https://github.com/10walnut/serial-protocol-tester-skill/releases/latest/download/serial-protocol-tester-skill.zip">下载 Skill ZIP</a> ·
+  <a href="https://github.com/10walnut/serial-protocol-tester-skill/releases/latest/download/serial-protocol-assistant-skill.zip">下载 Skill ZIP</a> ·
   <a href="https://github.com/10walnut/serial-protocol-tester-app">PySide6 上位机</a>
 </p>
 
 ## 中文
+
+Skill 调用名为 `serial-protocol-assistant`，原有 GitHub 仓库地址和 `serial_protocol.v1` 协议格式保持不变。重新安装后请使用新调用名；旧安装目录不会被自动删除。配套应用首次启动默认开启夜间主题，可通过顶部开关切换，并自动记住选择。
 
 这个 Skill 读取原厂串口协议文档、Word/PDF/Markdown、Excel 命令表、抓包和示例帧，输出标准 `serial_protocol.v1` JSON。生成结果可直接导入配套软件，把原始资料快速变成可发送命令、接收应答、模拟上下位机并解释每个字节的功能测试上位机。
 
@@ -43,7 +45,7 @@
 
 #### 豆包
 
-1. 下载 [serial-protocol-tester-skill.zip](https://github.com/10walnut/serial-protocol-tester-skill/releases/latest/download/serial-protocol-tester-skill.zip)。
+1. 下载 [serial-protocol-assistant-skill.zip](https://github.com/10walnut/serial-protocol-tester-skill/releases/latest/download/serial-protocol-assistant-skill.zip)。
 2. 在豆包进入“技能新建”→“上传技能”。
 3. 直接上传 ZIP；压缩包根目录已经包含 `SKILL.md`。
 
@@ -60,7 +62,7 @@ cd serial-protocol-tester-skill
 | Claude Code | `.\install.ps1 -Target claude` |
 | WorkBuddy | `.\install.ps1 -Target workbuddy` |
 | Harness / 项目 Skills | `.\install.ps1 -Target harness` |
-| 自定义目录 | `.\install.ps1 -Target custom -Destination "D:\agent-skills\serial-protocol-tester"` |
+| 自定义目录 | `.\install.ps1 -Target custom -Destination "D:\agent-skills\serial-protocol-assistant"` |
 
 WorkBuddy 需要先配置 `WORKBUDDY_SKILL_DIRS`，也可以直接传入 `-Destination`。Linux/macOS 使用 `./install.sh codex`、`./install.sh claude` 或 `./install.sh custom <目录>`。
 
@@ -85,13 +87,13 @@ flowchart LR
 4. 要求 Agent 列出不能确定的校验范围、字节序、符号位或长度定义，不允许猜测。
 5. 生成后运行校验器，修复所有错误，再导入软件。
 
-![Skill 生成的 JSON 在上位机中执行](docs/images/app-main-zh.png)
+![Skill 生成的 JSON 在串口协议助手夜间主题中执行](docs/images/app-main-dark-zh.png)
 
 ### 按协议生成可修改变量
 
 协议中的日期、时间、设备地址、工作模式、阈值、标定值和传感器数据不必固化为一条示例命令。Skill 会根据原厂定义生成 `variables`、`encode` 和受限计算公式，并写明取值范围、单位、步进、大小端、比例与偏移；如果协议没有给出关键计算规则，Skill 会先询问而不是猜测。
 
-![根据协议修改自定义变量并生成串口数据](docs/images/custom-variable-send-zh.png)
+![根据协议修改自定义变量并生成串口数据](docs/images/variables-dark-zh.png)
 
 导入 App 后，双击命令即可看到该协议专属的参数窗口。用户可手动输入或通过加减按钮调整字段，点击“生成并发送”后，软件按 JSON 公式写入对应字节，并自动更新长度和校验和。不同设备可以呈现不同变量，形成更贴合原厂协议的个性化测试上位机，无需修改软件源码。
 
@@ -100,7 +102,7 @@ flowchart LR
 基础转换：
 
 ```text
-使用 serial-protocol-tester Skill 读取我上传的协议。
+使用 serial-protocol-assistant Skill 读取我上传的协议。
 只输出中文 serial_protocol.v1 JSON，不要中英文混合。
 每个发送和接收字段写明字节位置、作用、类型和计算过程。
 生成后运行校验器，并单独列出文档中无法确定的内容。
@@ -145,7 +147,7 @@ python .\scripts\validate_protocol.py .\examples\sample_protocol.json
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-校验成功后，将 JSON 导入 [Serial Protocol Tester App](https://github.com/10walnut/serial-protocol-tester-app)。App 可作为上位机连接真实设备，也可作为下位机通过 com0com 虚拟串口与待测上位机通信；完成协议验证后，还可直接作为该设备的轻量功能上位机使用。
+校验成功后，将 JSON 导入 [Serial Protocol Assistant App](https://github.com/10walnut/serial-protocol-tester-app)。App 可作为上位机连接真实设备，也可作为下位机通过 com0com 虚拟串口与待测上位机通信；完成协议验证后，还可直接作为该设备的轻量功能上位机使用。
 
 ### 仓库结构
 
@@ -160,13 +162,15 @@ install.ps1 / install.sh              多客户端安装脚本
 
 ## English
 
+The Skill is now called `serial-protocol-assistant`. The existing repository URLs and `serial_protocol.v1` format remain unchanged. Reinstall and use the new invocation name; the installer does not delete old installations. The companion app starts in dark mode on first launch and remembers your choice when you use the top-bar theme switch.
+
 This portable Agent Skill turns vendor serial specifications, Word/PDF/Markdown documents, spreadsheets, captures, and sample frames into validated `serial_protocol.v1` JSON. Load the result into the companion app to get a button-driven functional test console without rebuilding a temporary host UI and protocol parser for every device.
 
 The resulting workflow exposes expected frames, actual TX, and actual RX side by side, helping isolate faults in the host implementation, device response, protocol script, or serial link. After validation, the same app can remain in use as a lightweight functional host.
 
 ### Install
 
-For Doubao, download [serial-protocol-tester-skill.zip](https://github.com/10walnut/serial-protocol-tester-skill/releases/latest/download/serial-protocol-tester-skill.zip), open **Create Skill → Upload Skill**, and upload the ZIP directly. `SKILL.md` is at the archive root.
+For Doubao, download [serial-protocol-assistant-skill.zip](https://github.com/10walnut/serial-protocol-tester-skill/releases/latest/download/serial-protocol-assistant-skill.zip), open **Create Skill → Upload Skill**, and upload the ZIP directly. `SKILL.md` is at the archive root.
 
 For local Agent clients:
 
@@ -191,14 +195,14 @@ Replace `codex` with `claude`, `workbuddy`, or `harness`. Use `-Target custom -D
 
 Changing dates, times, addresses, modes, thresholds, calibration values, and sensor samples do not need to be frozen into example frames. The Skill derives editable `variables`, `encode` rules, and restricted formulas from the vendor specification, including ranges, units, steps, endianness, scaling, and offsets. It asks for missing rules instead of guessing.
 
-![Edit protocol-specific variables and generate serial data](docs/images/custom-variable-send-zh.png)
+![Edit protocol-specific variables and generate serial data](docs/images/variables-dark-zh.png)
 
 In the App, opening a command presents only the parameters defined for that protocol. Users can type values or use the step controls, then select **Generate and Send**. The App writes each value into its documented bytes and recalculates lengths and checksums, so every device can have a tailored functional console without changing application code.
 
 Example prompt:
 
 ```text
-Use the serial-protocol-tester Skill to read the attached specification.
+Use the serial-protocol-assistant Skill to read the attached specification.
 Emit English-only serial_protocol.v1 JSON. Define editable variables and documented
 formulas for every changing date, time, address, calibration, and sensor value.
 The realtime command must return an ACK first, then transmit a frame every 100 ms
@@ -221,6 +225,6 @@ python scripts/validate_protocol.py examples/sample_protocol.json
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-For a fast path from vendor documentation to button-driven host/device simulation, virtual COM testing, formula input, scheduled replies, fault isolation, and byte-level traffic explanations, download the separate [Serial Protocol Tester App](https://github.com/10walnut/serial-protocol-tester-app). It can also be used as a lightweight host for routine device functions.
+For a fast path from vendor documentation to button-driven host/device simulation, virtual COM testing, formula input, scheduled replies, fault isolation, and byte-level traffic explanations, download the separate [Serial Protocol Assistant App](https://github.com/10walnut/serial-protocol-tester-app). It can also be used as a lightweight host for routine device functions.
 
 Maintained by `十个核桃 / 10walnut`. MIT licensed.

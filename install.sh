@@ -4,7 +4,7 @@ set -eu
 target="${1:-codex}"
 destination="${2:-}"
 source_root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-skill_name="serial-protocol-tester"
+skill_name="serial-protocol-assistant"
 
 if [ -z "$destination" ]; then
   case "$target" in
@@ -27,7 +27,8 @@ if [ -z "$destination" ]; then
   esac
 fi
 
-mkdir -p "$destination/references" "$destination/scripts" "$destination/examples"
+mkdir -p "$destination/agents" "$destination/references" "$destination/scripts" "$destination/examples"
+cp "$source_root/agents/openai.yaml" "$destination/agents/"
 cp "$source_root/SKILL.md" "$source_root/LICENSE" "$destination/"
 cp "$source_root/references/protocol-script-format.md" "$destination/references/"
 cp "$source_root/scripts/protocol_core.py" "$source_root/scripts/validate_protocol.py" "$destination/scripts/"

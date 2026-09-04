@@ -8,7 +8,7 @@ Set-StrictMode -Version 2.0
 $ErrorActionPreference = "Stop"
 
 $SourceRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$SkillName = "serial-protocol-tester"
+$SkillName = "serial-protocol-assistant"
 
 if (-not $Destination) {
     switch ($Target) {
@@ -38,6 +38,7 @@ foreach ($File in @("SKILL.md", "LICENSE")) {
     Copy-Item -LiteralPath (Join-Path $ResolvedSource $File) -Destination $ResolvedDestination -Force
 }
 foreach ($RelativePath in @(
+    "agents\openai.yaml",
     "references\protocol-script-format.md",
     "scripts\protocol_core.py",
     "scripts\validate_protocol.py",

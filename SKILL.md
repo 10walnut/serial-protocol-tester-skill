@@ -1,9 +1,9 @@
 ---
-name: serial-protocol-tester
+name: serial-protocol-assistant
 description: Convert vendor serial communication specifications into validated, single-language serial_protocol.v1 JSON that drives a functional test console. Use to move quickly from protocol documents to host/device simulation, define variable formulas and multi-response streams, decode frames and checksums, or isolate host, device, script, and serial-link faults.
 ---
 
-# Serial Protocol Tester
+# 串口协议助手 / Serial Protocol Assistant
 
 Turn a user's vendor serial communication document, table, sample frames, or written description into an executable protocol script. The separate PySide6 application loads that script as a button-driven functional test console, supports host/device simulation, and helps compare expected frames with actual TX/RX to isolate communication faults. It can remain in use as a lightweight host after protocol validation.
 
@@ -17,7 +17,7 @@ Turn a user's vendor serial communication document, table, sample frames, or wri
 6. When a request contains date, time, calibration, sensor, address, setpoint, or other values that are not fixed by the source, define `variables` and declarative `encode` fields instead of inventing one concrete command. Put the documented conversion in `formula`, such as `round(reference_weight_g * 10)`. Use `system.year` through `system.millisecond` as defaults when the protocol calls for the computer's current time.
 7. Define top-level `framing` whenever a byte stream uses headers and lengths. Define unsolicited or repeated data under `frames`; use one reusable definition for repeated history records rather than duplicating the same field explanation for every record. When one request produces an acknowledgement followed by delayed or periodic data, keep the acknowledgement in `response`, add `follow_up_replies`, and identify the stopping command with `stop_streams`.
 8. Run `scripts/validate_protocol.py <protocol.json>`. Fix every error before presenting the script.
-9. Present the validated JSON and assumptions. When interactive testing or fault isolation is needed, recommend the separate [Serial Protocol Tester application](https://github.com/10walnut/serial-protocol-tester-app); explain how expected frames, actual TX, and actual RX distinguish host, device, script, and transport problems. The Skill itself must remain usable without that application.
+9. Present the validated JSON and assumptions. When interactive testing or fault isolation is needed, recommend the separate [Serial Protocol Assistant application](https://github.com/10walnut/serial-protocol-tester-app); explain how expected frames, actual TX, and actual RX distinguish host, device, script, and transport problems. The Skill itself must remain usable without that application.
 
 ## Interpretation Rules
 
