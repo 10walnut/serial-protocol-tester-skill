@@ -8,3 +8,10 @@ logs/
 .idea/
 .vscode/
 serial-protocol-tester-app/
+
+# Local video production, source recordings, and unpublished manuscripts
+/videos/
+/video-assets/
+/SCRIPT.md
+/video-spec.md
+/串口协议助手操作指南.md

@@ -31,6 +31,10 @@ Skill 调用名为 `serial-protocol-assistant`，原有 GitHub 仓库地址和 `
 
 它把“读协议、写测试界面、实现组帧解帧”压缩为一条可复用流程。测试时可对照协议预期、实际 TX 和实际 RX，快速判断问题位于上位机实现、下位机响应、协议脚本还是串口链路；测试完成后，配套软件也可继续作为简单功能的上位机使用。
 
+**两部分分工：Skill 负责把文档转换成协议规则，软件负责加载规则、收发和解析。** Skill 不是串口驱动，生成 JSON 也不会在系统中创建 COM 口。
+
+快速入口：[下载准备](#下载准备) · [安装 Skill](#三分钟安装) · [文档转换](#标准流程) · [第一次测试](#从-json-到第一次测试) · [提示词](#提示词示例)
+
 ### 它解决什么问题
 
 - 从资料中提取波特率、数据位、帧头、长度、命令、应答、大小端、比例、单位、枚举和校验范围。
@@ -40,6 +44,16 @@ Skill 调用名为 `serial-protocol-assistant`，原有 GitHub 仓库地址和 `
 - 每个有意义的 TX/RX 字节都有位置、用途、原始值和计算过程。
 - 生成后使用纯 Python 标准库校验，不依赖桌面软件或 PySide6。
 - 配合 App 直接生成按钮式测试界面，减少为每份原厂协议重复编写临时上位机的工作。
+
+### 下载准备
+
+| 内容 | 下载入口 | 什么时候需要 |
+| --- | --- | --- |
+| 串口协议助手 Skill | [Skill ZIP](https://github.com/10walnut/serial-protocol-tester-skill/releases/latest/download/serial-protocol-assistant-skill.zip) / [仓库](https://github.com/10walnut/serial-protocol-tester-skill) | 让 AI 客户端读取文档并转换协议 |
+| 串口协议助手软件 | [Windows 中文版 EXE](https://github.com/10walnut/serial-protocol-tester-app/releases/latest/download/SerialProtocolAssistant-ZH-CN.exe) / [全部版本](https://github.com/10walnut/serial-protocol-tester-app/releases/latest) | 加载 JSON，执行命令与解析数据 |
+| com0com 签名版 | [官方驱动下载](https://sourceforge.net/projects/com0com/files/com0com/3.0.0.0/com0com-3.0.0.0-i386-and-x64-signed.zip/download) | 同一台 Windows PC 上，两个独立软件需要通过虚拟 COM 口通信时 |
+
+连接真实串口设备或使用软件内的“内部虚拟链路”，**不需要安装 com0com**。驱动兼容性以实际 Windows 环境为准，不要为了创建端口而关闭系统签名验证。
 
 ### 三分钟安装
 
@@ -66,6 +80,8 @@ cd serial-protocol-tester-skill
 
 WorkBuddy 需要先配置 `WORKBUDDY_SKILL_DIRS`，也可以直接传入 `-Destination`。Linux/macOS 使用 `./install.sh codex`、`./install.sh claude` 或 `./install.sh custom <目录>`。
 
+安装成功后，回到客户端确认可以引用 `serial-protocol-assistant`。不同客户端的技能入口可能随版本变化；安装目标和目录以仓库安装脚本及对应客户端说明为准。
+
 ### 标准流程
 
 ```mermaid
@@ -77,17 +93,60 @@ flowchart LR
     C -- 是 --> E[生成单语言 serial_protocol.v1 JSON]
     E --> F[运行 validate_protocol.py]
     F --> G[导入 PySide6 上位机]
-    G --> H[真实设备或虚拟串口测试]
+    G --> H[内部自测/真实设备/虚拟串口测试]
     H --> I[对照 TX/RX 快速定位上下位机问题]
 ```
 
-1. 上传协议原文和至少一条真实报文；资料越完整，字段解释越准确。
+1. 上传 Word、PDF、TXT、Markdown 等协议原文；如有手册示例报文或真实抓包，一并提供用于核对。没有示例时不要让 AI 编造验证结果。
 2. 指定输出语言，例如“只输出中文 JSON，不要中英混合”。
 3. 说明模拟角色和时序，例如“先 ACK，100 ms 后开始周期数据”。
 4. 要求 Agent 列出不能确定的校验范围、字节序、符号位或长度定义，不允许猜测。
-5. 生成后运行校验器，修复所有错误，再导入软件。
+5. 生成后运行校验器，修复所有错误，并与原文中的已知报文核对，再下载 JSON 导入软件。结构校验通过不代表真实设备已通过测试。
 
 ![Skill 生成的 JSON 在串口协议助手夜间主题中执行](docs/images/app-main-dark-zh.png)
+
+### 从 JSON 到第一次测试
+
+#### 1. 加载协议，认识界面
+
+1. 打开串口协议助手软件；更换协议前先关闭当前连接。
+2. 点击右上角“加载协议”，选择 Skill 生成的 JSON。
+3. 上方是连接设置，左侧是协议命令，右上方是通讯记录，右下方是选中数据帧的详细解释。
+
+**角色**决定软件扮演上位机还是下位机；**通信通道**决定使用内部虚拟链路还是串口连接。两者不是同一个选项。
+
+| 你要验证什么 | 本软件角色 | 通信通道 | 连接对象 |
+| --- | --- | --- | --- |
+| 没有硬件，先核对命令和回复逻辑 | 上位机 | 内部虚拟链路 | 软件内部模拟器 |
+| 测试真实下位机 | 上位机 | 串口或 URL | 真实设备对应的串口 |
+| 测试自己开发的上位机（同一 PC） | 下位机 | 串口或 URL | 虚拟串口对的一端；待测程序打开另一端 |
+
+#### 2. 没有硬件：内部自测
+
+选择“上位机 + 内部虚拟链路”，点击“打开”，再运行一条已定义请求与回复的命令。右侧可以检查 TX、RX 和字段解析。
+
+内部自测不需要硬件、不创建系统 COM 口，也不需要 com0com。它用于检查协议脚本在软件内的交互，**不能代替真实设备、接线、电平或串口链路测试**。
+
+#### 3. 连接真实下位机
+
+选择“上位机 + 串口或 URL”，使用设备实际对应的 COM 号。按设备协议核对波特率、数据位、校验位和停止位，再点击“打开”。截图中的端口号和波特率只是示例，不能直接照抄。
+
+连接前确认串口电平、接线和驱动匹配；先发送手册中容易核对的命令，再尝试变化参数与周期数据。
+
+#### 4. 模拟下位机，测试外部上位机
+
+同一台电脑上可安装 com0com 签名版，在软件的“虚拟串口”窗口检查配置工具路径，并创建一对空闲端口。例如 `COM10 ↔ COM11`：本软件选择“下位机 + 串口或 URL”并打开 COM10，待测上位机打开 COM11，两端通信参数保持一致。
+
+COM10 / COM11 只是示例，不要让两个程序占用同一端。收到的请求匹配协议定义、命令启用 `auto_reply` 且配置了应答行为时，软件才会按规则自动回复。下位机角色本身并不等于“必须安装虚拟串口驱动”；这里的 com0com 用于同一 PC 的双软件虚拟连接方案。
+
+#### 5. 发送命令，核对返回值
+
+1. 选中命令后发送，或双击命令。固定命令直接组帧；定义了变量的命令会先打开参数窗口。
+2. 输入参数并选择“生成并发送”。软件按 JSON 中的规则编码和计算校验和，不会替你猜测协议规则。
+3. 右上方查看时间、方向、命令和原始 HEX。**TX 是本软件发出，RX 是本软件收到**，不等同于固定的“请求 / 回复”方向。
+4. 选中目标记录，在右下方核对字节位置、字段、原始值、类型规则、计算过程和结果。回看历史时可取消“跟随最新”；需要重新计算当前详情时点击“刷新解析”。
+
+建议按“文档与示例核对 → 内部自测 → 真实对端验证”的顺序上手。结构合法、内部有应答和真实设备通过，是不同层次的验证结果。
 
 ### 按协议生成可修改变量
 
@@ -102,13 +161,16 @@ flowchart LR
 基础转换：
 
 ```text
-使用 serial-protocol-assistant Skill 读取我上传的协议。
-只输出中文 serial_protocol.v1 JSON，不要中英文混合。
+使用 serial-protocol-assistant Skill 读取附件协议，转换为中文 serial_protocol.v1 JSON。
+日期、时间和其他变化数据使用变量，保留原文的大小端、比例、单位及校验规则。
+补全请求、应答、多段回复、回复间隔和停止条件；不明确的地方先问我，不要猜测。
 每个发送和接收字段写明字节位置、作用、类型和计算过程。
-生成后运行校验器，并单独列出文档中无法确定的内容。
+生成后运行校验器，并与原文中已有的示例报文核对；没有示例时明确说明尚未做示例核对。
 ```
 
 动态变量与周期回复：
+
+下例的 `100 ms` 仅表示提示词写法；实际间隔必须使用你的协议原文，不要照搬。
 
 ```text
 把日期、时间、设备地址、重量、加速度和角速度定义为可输入变量，
@@ -168,6 +230,14 @@ This portable Agent Skill turns vendor serial specifications, Word/PDF/Markdown 
 
 The resulting workflow exposes expected frames, actual TX, and actual RX side by side, helping isolate faults in the host implementation, device response, protocol script, or serial link. After validation, the same app can remain in use as a lightweight functional host.
 
+The Skill converts documents into rules; the companion app loads those rules and performs communication. Generating JSON does not install a serial driver or create a Windows COM device.
+
+### Downloads
+
+- [Skill ZIP](https://github.com/10walnut/serial-protocol-tester-skill/releases/latest/download/serial-protocol-assistant-skill.zip): protocol conversion in your AI client.
+- [Windows English app](https://github.com/10walnut/serial-protocol-tester-app/releases/latest/download/SerialProtocolAssistant-EN.exe) / [all releases](https://github.com/10walnut/serial-protocol-tester-app/releases/latest): sending, simulation and decoding.
+- [Official signed com0com driver](https://sourceforge.net/projects/com0com/files/com0com/3.0.0.0/com0com-3.0.0.0-i386-and-x64-signed.zip/download): only for a virtual COM pair between two separate applications on the same Windows PC. Physical serial connections and the internal virtual link do not need it.
+
 ### Install
 
 For Doubao, download [serial-protocol-assistant-skill.zip](https://github.com/10walnut/serial-protocol-tester-skill/releases/latest/download/serial-protocol-assistant-skill.zip), open **Create Skill → Upload Skill**, and upload the ZIP directly. `SKILL.md` is at the archive root.
@@ -190,6 +260,24 @@ Replace `codex` with `claude`, `workbuddy`, or `harness`. Use `-Target custom -D
 4. Require the Agent to ask about byte order, signedness, checksum coverage, and length rules when the source is ambiguous.
 5. Generate one JSON file, run `scripts/validate_protocol.py`, fix every error, and then load it in the desktop app.
 6. Compare the documented frame, actual TX, and actual RX to determine whether a failure belongs to the host, device, script definition, or transport.
+
+### First Test in the App
+
+1. Close the active connection before switching protocols, then select **Load protocol** and open the generated JSON.
+2. Choose the app's **role** independently from its **transport**:
+
+| Test target | Role | Transport | Peer |
+| --- | --- | --- | --- |
+| Protocol logic without hardware | Host | Internal virtual link | Built-in simulator |
+| Physical embedded device | Host | Serial or URL | Actual device port |
+| Your own host application on the same PC | Device | Serial or URL | One end of a virtual COM pair |
+
+3. For hardware, verify the actual COM port, baud rate, data bits, parity, stop bits, wiring, electrical levels and driver. Screenshot values are not universal settings.
+4. For two-application virtual testing, create an unused COM pair, such as COM10 / COM11, and open a different end in each program. Device simulation replies only when the request matches and the command enables `auto_reply` with configured reply behavior.
+5. Open the connection and run a command. Commands with variables first show their protocol-specific input fields; select **Generate and Send** after editing them.
+6. Inspect raw traffic and select a row for byte-level details. TX means sent by this app; RX means received by this app. Disable **Follow latest** to inspect history and use **Refresh details** when needed.
+
+Validate known manual examples first, then try the internal link, then connect the real peer. Schema validation and internal responses do not prove that physical hardware has passed. Do not invent sample-frame verification when the source provides no examples.
 
 ### Protocol-Specific Variables
 
