@@ -10,7 +10,7 @@
   <a href="https://github.com/10walnut/serial-protocol-tester-skill/stargazers"><img src="https://img.shields.io/github/stars/10walnut/serial-protocol-tester-skill?style=flat-square&logo=github" alt="GitHub stars"></a>
   <a href="https://github.com/10walnut/serial-protocol-tester-skill/releases"><img src="https://img.shields.io/github/downloads/10walnut/serial-protocol-tester-skill/total?style=flat-square&logo=github" alt="Total downloads"></a>
   <a href="https://github.com/10walnut/serial-protocol-tester-skill/actions/workflows/test.yml"><img src="https://github.com/10walnut/serial-protocol-tester-skill/actions/workflows/test.yml/badge.svg" alt="Skill validation"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/10walnut/serial-protocol-tester-skill?style=flat-square" alt="MIT license"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/10walnut/serial-protocol-tester-skill?style=flat-square" alt="PolyForm Noncommercial license"></a>
 </p>
 
 <p align="center">
@@ -315,4 +315,12 @@ python -m unittest discover -s tests -p "test_*.py" -v
 
 For a fast path from vendor documentation to button-driven host/device simulation, virtual COM testing, formula input, scheduled replies, fault isolation, and byte-level traffic explanations, download the separate [Serial Protocol Assistant App](https://github.com/10walnut/serial-protocol-tester-app). It can also be used as a lightweight host for routine device functions.
 
-Maintained by `十个核桃 / 10walnut`. MIT licensed.
+### 许可 / License
+
+本项目源码按照 [PolyForm Noncommercial License 1.0.0](LICENSE) 提供，仅允许非商业用途。个人学习、研究、实验和非商业组织使用请遵守许可证条款；公司业务、收费服务、产品集成、商业交付或其他商业用途，需要事先取得单独的商业授权。可通过 GitHub Issues 联系维护者。
+
+This source code is available under the [PolyForm Noncommercial License 1.0.0](LICENSE) for noncommercial purposes only. Commercial use—including business operations, paid services, product integration, or commercial delivery—requires a separate license from the maintainer. Contact the maintainer through GitHub Issues.
+
+The license change applies to versions released under the new license. Rights already granted for earlier MIT-licensed versions are not retroactively withdrawn.
+
+Maintained by `十个核桃 / 10walnut`.
